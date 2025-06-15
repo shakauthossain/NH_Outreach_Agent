@@ -1,20 +1,17 @@
 import os
 from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
-# Load DATABASE_URL from .env
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Create the PostgreSQL engine
 engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine)
 
-# Session and Base setup
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
 
-# Define the Lead table
 class LeadDB(Base):
     __tablename__ = "leads"
 
@@ -26,6 +23,8 @@ class LeadDB(Base):
     company = Column(String)
     website_url = Column(String)
     linkedin_url = Column(String)
+    website_speed_web = Column(Integer, nullable=True)
+    website_speed_mobile = Column(Integer, nullable=True)
 
-# Create tables in PostgreSQL
+# Create the table if it doesn't exist
 Base.metadata.create_all(bind=engine)

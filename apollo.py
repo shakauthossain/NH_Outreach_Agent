@@ -46,7 +46,7 @@ def fetch_apollo_leads(
     db = SessionLocal()
     leads = []
     page = 1
-    max_pages = 50  # safety to avoid infinite loop
+    max_pages = 50
 
     while len(leads) < desired_count and page <= max_pages:
         print(f"Fetching page {page}...")
@@ -84,14 +84,26 @@ def fetch_apollo_leads(
             title = person.get("title")
             org = person.get("organization", {})
             email = person.get("email")
+            website_url = org.get("website_url", "") or ""
+            linkedin_url = person.get("linkedin_url", "") or ""
+
+            if not website_url:
+                print(f"Skipping {first_name} {last_name} - No website.")
+                continue
+
+            if not email or "not_unlocked" in email or not linkedin_url or not title:
+                enriched = get_person_details(person_id)
+                email = enriched.get("email") or email
+                linkedin_url = linkedin_url or enriched.get("linkedin_url")
+                title = enriched.get("title") or title
+
+            if not linkedin_url:
+                print(f"Skipping {first_name} {last_name} - No LinkedIn after enrichment.")
+                continue
 
             if not email or "not_unlocked" in email:
                 email = f"locked_{person_id}@apollo.com"
 
-            website_url = org.get("website_url", "") or ""
-            linkedin_url = person.get("linkedin_url", "") or ""
-
-            # Check for duplicates
             existing_lead = db.query(LeadDB).filter(
                 (LeadDB.email == email) |
                 (LeadDB.website_url == website_url) |
@@ -102,7 +114,6 @@ def fetch_apollo_leads(
                 print(f"Skipping duplicate: {first_name} {last_name}")
                 continue
 
-            # Save to DB
             lead_db = LeadDB(
                 first_name=first_name,
                 last_name=last_name,
@@ -125,7 +136,7 @@ def fetch_apollo_leads(
                 linkedin_url=lead_db.linkedin_url
             ))
 
-            print(f"✅ Added: {first_name} {last_name} ({email})")
+            print(f"Added: {first_name} {last_name} ({email})")
 
             if len(leads) >= desired_count:
                 break

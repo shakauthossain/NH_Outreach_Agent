@@ -1,24 +1,29 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>NH Outreach Leads Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leads Table</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 30px;
     }
+
     h2 {
       margin-bottom: 10px;
     }
+
     input, button, select {
       margin: 5px 10px 15px 0;
       padding: 8px;
       font-size: 14px;
     }
+
     input[type="text"], select {
       width: 250px;
     }
+
     button {
       cursor: pointer;
       background-color: #007BFF;
@@ -26,21 +31,34 @@
       border: none;
       border-radius: 4px;
     }
+
     button:disabled {
       background-color: #aaa;
     }
+
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
     }
+
     th, td {
       padding: 10px;
       border: 1px solid #ddd;
     }
+
     th {
       background-color: #f2f2f2;
     }
+
+    .score-green {
+      color: green;
+    }
+
+    .score-red {
+      color: red;
+    }
+
     a {
       color: blue;
       text-decoration: none;
@@ -61,7 +79,6 @@
       <option value="100">100 Leads</option>
     </select>
     <button onclick="fetchNewLeads()">Fetch New Leads</button>
-    <button onclick="enrichLeads()">🔍 Enrich Leads</button>
     <input type="text" id="searchInput" placeholder="🔍 Filter table..." onkeyup="filterTable()">
   </div>
 
@@ -70,13 +87,13 @@
   <table id="leadsTable">
     <thead>
       <tr>
-        <th>First</th>
-        <th>Last</th>
+        <th>Full Name</th>
         <th>Email</th>
-        <th>Company</th>
         <th>Title</th>
+        <th>Company</th>
         <th>Website</th>
         <th>LinkedIn</th>
+        <th>Website Speed</th>
       </tr>
     </thead>
     <tbody id="tableBody"></tbody>
@@ -91,19 +108,28 @@
       const data = await res.json();
 
       data.forEach(lead => {
+        const isGood = lead.website_speed && lead.website_speed.includes('M-') 
+          ? parseFloat(lead.website_speed.split('M-')[1]) > 80 
+          : false;
+
         const row = document.createElement("tr");
         row.innerHTML = `
-          <td>${lead.first_name}</td>
-          <td>${lead.last_name}</td>
-          <td>${lead.email.includes("locked_") ? "🔒 Locked" : lead.email}</td>
+          <td>${lead.first_name} ${lead.last_name}</td>
+          <td>${lead.email.includes("locked_") ? "Locked" : lead.email}</td>
+          <td>${lead.title || 'N/A'}</td>
           <td>${lead.company}</td>
-          <td>${lead.title || '—'}</td> <!-- ✅ Show title or fallback -->
-          <td>${
-            lead.website_url && lead.website_url !== "None"
-              ? `<a href="${lead.website_url}" target="_blank">Visit</a>`
-              : "No website link"
-          }</td>
+          <td>
+            ${
+              lead.website_url && lead.website_url !== "None"
+                ? `<a href="${lead.website_url}" target="_blank">Visit</a>`
+                : "No website link"
+            }
+          </td>
           <td><a href="${lead.linkedin_url || '#'}" target="_blank">${lead.linkedin_url ? 'LinkedIn' : 'N/A'}</a></td>
+          <td class="${isGood ? 'score-green' : 'score-red'}">
+            ${lead.website_speed || 'No Speed Test Yet'}
+            <button id="refreshBtn-${lead.id}" onclick="refreshSpeed(${lead.id})">Refresh Speed</button>
+          </td>
         `;
         document.getElementById("tableBody").appendChild(row);
       });
@@ -137,7 +163,7 @@
 
       try {
         await fetch(`${BASE_URL}/import/apollo?${params.toString()}`);
-        status.textContent = `✅ Fetched leads for search.`;
+        status.textContent = `Fetched leads for search.`;
         await loadLeads();
       } catch (err) {
         console.error("Error:", err);
@@ -147,18 +173,37 @@
       button.disabled = false;
     }
 
-    async function enrichLeads() {
+    async function refreshSpeed(leadId) {
       const status = document.getElementById("statusMsg");
-      status.textContent = "Enriching leads...";
+      const button = document.getElementById(`refreshBtn-${leadId}`);
+      
+      if (!leadId) {
+        status.textContent = "Invalid lead ID.";
+        return;
+      }
+
+      status.textContent = `Refreshing speed for lead ${leadId}...`;
+      button.disabled = true;
+
       try {
-        const res = await fetch(`${BASE_URL}/enrich-leads`, { method: "POST" });
-        const result = await res.json();
-        status.textContent = `✅ ${result.message || "Enrichment complete."}`;
+        const res = await fetch(`${BASE_URL}/speedtest/${leadId}`, {
+          method: "POST",
+        });
+        const data = await res.json();
+
+        if (data.message) {
+          status.textContent = data.message;
+        } else {
+          status.textContent = data.error || "Unknown error.";
+        }
+
         await loadLeads();
       } catch (err) {
-        console.error("Enrich error:", err);
-        status.textContent = "❌ Enrichment failed.";
+        console.error("Error:", err);
+        status.textContent = "Failed to refresh speed.";
       }
+
+      button.disabled = false;
     }
 
     window.onload = loadLeads;

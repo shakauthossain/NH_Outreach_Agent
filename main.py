@@ -1,11 +1,14 @@
-from fastapi import FastAPI, Query, UploadFile, File
+from fastapi import FastAPI, Query, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import pandas as pd
+import time
 
 from apollo import fetch_apollo_leads, get_person_details
 from models import Lead
 from database import SessionLocal, LeadDB
+from pagespeed import test_all_unspeeded_leads, refresh_speed_for_lead
+
 
 app = FastAPI()
 
@@ -22,17 +25,19 @@ def root():
     return {"message": "NH Outreach Agent API is running"}
 
 @app.get("/import/apollo", response_model=List[Lead])
+@app.get("/import/apollo", response_model=List[Lead])
 def import_apollo_leads(
     industry: str = None,
     functions: str = None,
     seniority: str = None,
-    desired_count: int = 10
+    per_page: int = 10  # <-- get this from frontend
 ):
     return fetch_apollo_leads(
         industry=industry,
         functions=functions,
         seniority=seniority,
-        desired_count=desired_count
+        desired_count=per_page,  # <-- now using frontend's value
+        per_page=per_page         # optional, but keeps request page size
     )
 
 @app.get("/leads", response_model=List[Lead])
@@ -47,7 +52,8 @@ def get_saved_leads(limit: int = 100):
             title=l.title,
             company=l.company,
             website_url=l.website_url,
-            linkedin_url=l.linkedin_url
+            linkedin_url=l.linkedin_url,
+            id=l.id  # Make sure id is included
         )
         for l in db_leads
     ]
@@ -85,3 +91,16 @@ def enrich_all_leads():
 
     db.close()
     return {"message": f"Enriched and updated {updated} leads"}
+
+
+@app.post("/speedtest")
+def run_bulk_speedtest():
+    count = test_all_unspeeded_leads()
+    return {"message": f"Tested {count} websites"}
+
+@app.post("/speedtest/{lead_id}")
+def refresh_one_speed(lead_id: int):
+    web, mob = refresh_speed_for_lead(lead_id)
+    if web is None and mob is None:
+        return {"error": "Speed test failed or lead not found"}
+    return {"message": f"Updated: W-{web}, M-{mob}"}
