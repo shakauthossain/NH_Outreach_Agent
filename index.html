@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>NH Outreach Leads Viewer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+    }
+    h2 {
+      margin-bottom: 10px;
+    }
+    input, button, select {
+      margin: 5px 10px 15px 0;
+      padding: 8px;
+      font-size: 14px;
+    }
+    input[type="text"], select {
+      width: 250px;
+    }
+    button {
+      cursor: pointer;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    button:disabled {
+      background-color: #aaa;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    a {
+      color: blue;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <h2>Saved Leads</h2>
+
+  <div>
+    <input type="text" id="industryInput" placeholder="Industry (e.g., Software)">
+    <input type="text" id="functionInput" placeholder="Function (e.g., Marketing)">
+    <input type="text" id="seniorityInput" placeholder="Seniority (e.g., VP)">
+    <select id="perPageSelect">
+      <option value="10" selected>10 Leads</option>
+      <option value="25">25 Leads</option>
+      <option value="50">50 Leads</option>
+      <option value="100">100 Leads</option>
+    </select>
+    <button onclick="fetchNewLeads()">Fetch New Leads</button>
+    <button onclick="enrichLeads()">🔍 Enrich Leads</button>
+    <input type="text" id="searchInput" placeholder="🔍 Filter table..." onkeyup="filterTable()">
+  </div>
+
+  <span id="statusMsg"></span>
+
+  <table id="leadsTable">
+    <thead>
+      <tr>
+        <th>First</th>
+        <th>Last</th>
+        <th>Email</th>
+        <th>Company</th>
+        <th>Title</th>
+        <th>Website</th>
+        <th>LinkedIn</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
+  <script>
+    const BASE_URL = "http://localhost:8000"; // Change this in production
+
+    async function loadLeads() {
+      document.getElementById("tableBody").innerHTML = "";
+      const res = await fetch(`${BASE_URL}/leads`);
+      const data = await res.json();
+
+      data.forEach(lead => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${lead.first_name}</td>
+          <td>${lead.last_name}</td>
+          <td>${lead.email.includes("locked_") ? "🔒 Locked" : lead.email}</td>
+          <td>${lead.company}</td>
+          <td>${lead.title || '—'}</td> <!-- ✅ Show title or fallback -->
+          <td>${
+            lead.website_url && lead.website_url !== "None"
+              ? `<a href="${lead.website_url}" target="_blank">Visit</a>`
+              : "No website link"
+          }</td>
+          <td><a href="${lead.linkedin_url || '#'}" target="_blank">${lead.linkedin_url ? 'LinkedIn' : 'N/A'}</a></td>
+        `;
+        document.getElementById("tableBody").appendChild(row);
+      });
+    }
+
+    function filterTable() {
+      const input = document.getElementById("searchInput").value.toLowerCase();
+      const rows = document.querySelectorAll("#tableBody tr");
+      rows.forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(input) ? "" : "none";
+      });
+    }
+
+    async function fetchNewLeads() {
+      const industry = document.getElementById("industryInput").value.trim();
+      const functions = document.getElementById("functionInput").value.trim();
+      const seniority = document.getElementById("seniorityInput").value.trim();
+      const perPage = document.getElementById("perPageSelect").value;
+
+      const params = new URLSearchParams();
+      if (industry) params.append("industry", industry);
+      if (functions) params.append("functions", functions);
+      if (seniority) params.append("seniority", seniority);
+      params.append("per_page", perPage);
+
+      const button = event.target;
+      const status = document.getElementById("statusMsg");
+
+      button.disabled = true;
+      status.textContent = "Fetching new leads...";
+
+      try {
+        await fetch(`${BASE_URL}/import/apollo?${params.toString()}`);
+        status.textContent = `✅ Fetched leads for search.`;
+        await loadLeads();
+      } catch (err) {
+        console.error("Error:", err);
+        status.textContent = "❌ Failed to fetch.";
+      }
+
+      button.disabled = false;
+    }
+
+    async function enrichLeads() {
+      const status = document.getElementById("statusMsg");
+      status.textContent = "Enriching leads...";
+      try {
+        const res = await fetch(`${BASE_URL}/enrich-leads`, { method: "POST" });
+        const result = await res.json();
+        status.textContent = `✅ ${result.message || "Enrichment complete."}`;
+        await loadLeads();
+      } catch (err) {
+        console.error("Enrich error:", err);
+        status.textContent = "❌ Enrichment failed.";
+      }
+    }
+
+    window.onload = loadLeads;
+  </script>
+</body>
+</html>
