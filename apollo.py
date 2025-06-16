@@ -5,12 +5,31 @@ from dotenv import load_dotenv
 from typing import List
 from models import Lead
 from database import SessionLocal, LeadDB
+from pagespeed import test_all_unspeeded_leads, refresh_speed_for_lead
 
 load_dotenv()
 
 API_KEY = os.getenv("APOLLO_API_KEY")
 EnrichAPI_KEY = os.getenv("EnrichAPOLLO_API_KEY")
 
+
+def get_person_details(person_id: str) -> dict:
+    url = f"https://api.apollo.io/v1/people/match?id={person_id}"
+    headers = {
+        "X-Api-Key": EnrichAPI_KEY,
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 429:
+            print(f"Rate limit hit for {person_id}, skipping for now.")
+            return {}
+        response.raise_for_status()
+        return response.json().get("person", {})
+    except Exception as e:
+        print(f"Error unlocking {person_id}: {e}")
+        return {}
 
 def get_person_details(person_id: str) -> dict:
     url = f"https://api.apollo.io/v1/people/match?id={person_id}"
@@ -126,14 +145,18 @@ def fetch_apollo_leads(
             db.add(lead_db)
             db.commit()
 
+            # Create the Lead Pydantic model without requiring missing fields
             leads.append(Lead(
+                id=lead_db.id,  # Use the generated id from the database
                 first_name=first_name,
                 last_name=last_name,
                 email=email,
                 title=lead_db.title,
                 company=lead_db.company,
                 website_url=lead_db.website_url,
-                linkedin_url=lead_db.linkedin_url
+                linkedin_url=lead_db.linkedin_url,
+                website_speed_web=None,
+                website_speed_mobile=None
             ))
 
             print(f"Added: {first_name} {last_name} ({email})")

@@ -9,7 +9,6 @@ from models import Lead
 from database import SessionLocal, LeadDB
 from pagespeed import test_all_unspeeded_leads, refresh_speed_for_lead
 
-
 app = FastAPI()
 
 app.add_middleware(
@@ -24,7 +23,6 @@ app.add_middleware(
 def root():
     return {"message": "NH Outreach Agent API is running"}
 
-@app.get("/import/apollo", response_model=List[Lead])
 @app.get("/import/apollo", response_model=List[Lead])
 def import_apollo_leads(
     industry: str = None,
@@ -43,22 +41,29 @@ def import_apollo_leads(
 @app.get("/leads", response_model=List[Lead])
 def get_saved_leads(limit: int = 100):
     db = SessionLocal()
-    db_leads = db.query(LeadDB).limit(limit).all()
-    leads = [
-        Lead(
-            first_name=l.first_name,
-            last_name=l.last_name,
-            email=l.email,
-            title=l.title,
-            company=l.company,
-            website_url=l.website_url,
-            linkedin_url=l.linkedin_url,
-            id=l.id  # Make sure id is included
-        )
-        for l in db_leads
-    ]
-    db.close()
-    return leads
+    try:
+        db_leads = db.query(LeadDB).limit(limit).all()
+        leads = [
+            Lead(
+                first_name=l.first_name,
+                last_name=l.last_name,
+                email=l.email,
+                title=l.title,
+                company=l.company,
+                website_url=l.website_url,
+                linkedin_url=l.linkedin_url,
+                website_speed_web=l.website_speed_web,
+                website_speed_mobile=l.website_speed_mobile,
+                id=l.id
+            )
+            for l in db_leads
+        ]
+        db.close()
+        return leads
+    except Exception as e:
+        db.close()
+        print(f"Error fetching leads: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching leads")
 
 @app.post("/enrich-leads")
 def enrich_all_leads():

@@ -23,8 +23,8 @@ class LeadDB(Base):
     company = Column(String)
     website_url = Column(String)
     linkedin_url = Column(String)
-    website_speed_web = Column(Integer, nullable=True)
-    website_speed_mobile = Column(Integer, nullable=True)
+    website_speed_web = Column(Integer, nullable=True)  # or Float if needed
+    website_speed_mobile = Column(Integer, nullable=True)  # or Float if needed
 
-# Create the table if it doesn't exist
-Base.metadata.create_all(bind=engine)
+# Base.metadata.drop_all(bind=engine)  # Drop existing tables
+Base.metadata.create_all(bind=engine)  # Create the tables again
