@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mail Editor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+    }
+    textarea {
+      width: 100%;
+      height: 300px;
+      font-size: 16px;
+      padding: 10px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    button:disabled {
+      background-color: #aaa;
+    }
+    #statusMsg {
+      margin-top: 15px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Email Generator & Sender</h2>
+  <div id="statusMsg"></div>
+
+  <button onclick="generateEmail()">Generate Sales Email</button>
+  <br /><br />
+  <label for="emailBox"><strong>Email Content:</strong></label>
+  <textarea id="emailBox" readonly></textarea>
+  <br />
+  <button id="editBtn" onclick="toggleEdit()">Edit</button>
+  <button id="sendBtn" onclick="sendEmail()" disabled>Send Email</button>
+
+  <script>
+    const BASE_URL = "http://localhost:8000";
+    const leadId = window.location.pathname.split("/").pop();
+    let isEditing = false;
+
+    async function generateEmail() {
+      const status = document.getElementById("statusMsg");
+      console.log("Generate Email clicked");
+      console.log("Sending POST request to:", `${BASE_URL}/generate-mail/${leadId}`);
+      status.textContent = "Generating email...";
+      try {
+        const res = await fetch(`${BASE_URL}/generate-mail/${leadId}`, {
+          method: "POST"
+        });
+        const data = await res.json();
+        document.getElementById("emailBox").value = data.email || "";
+        status.textContent = "Email generated successfully.";
+      } catch (err) {
+        console.error(err);
+        status.textContent = "Failed to generate email.";
+      }
+    }
+
+    async function toggleEdit() {
+      const box = document.getElementById("emailBox");
+      const sendBtn = document.getElementById("sendBtn");
+      console.log("Toggling edit mode:", isEditing ? "Locking" : "Editing");
+
+      if (!isEditing) {
+        box.removeAttribute("readonly");
+        document.getElementById("editBtn").textContent = "Lock";
+        sendBtn.disabled = false;
+        isEditing = true;
+      } else {
+        box.setAttribute("readonly", true);
+        document.getElementById("editBtn").textContent = "Edit";
+        sendBtn.disabled = true;
+        isEditing = false;
+      }
+    }
+
+    async function sendEmail() {
+      const status = document.getElementById("statusMsg");
+      const emailBody = document.getElementById("emailBox").value.trim();
+      if (!emailBody) {
+        status.textContent = "Email content is empty.";
+        return;
+      }
+      status.textContent = "Sending email...";
+      try {
+        const res = await fetch(`${BASE_URL}/send-mail/${leadId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email_body: emailBody })
+        });
+        const data = await res.json();
+        status.textContent = data.message || "Email sent.";
+      } catch (err) {
+        console.error(err);
+        status.textContent = "Failed to send email.";
+      }
+    }
+
+    async function loadEmail() {
+      try {
+        const res = await fetch(`${BASE_URL}/leads`);
+        const leads = await res.json();
+        console.log("Running loadEmail()");
+
+        if (!Array.isArray(leads)) {
+          console.error("Unexpected leads response:", leads);
+          document.getElementById("statusMsg").textContent = "Failed to load leads.";
+          return;
+        }
+
+        const lead = leads.find(l => l.id === Number(leadId));
+        console.log("Resolved lead ID:", lead.final_email);
+        console.log("Matched lead:", lead);
+
+        if (lead) {
+          const emailToShow = lead.final_email || lead.generated_email;
+          document.getElementById("emailBox").value = emailToShow;
+          document.getElementById("editBtn").disabled = false;
+          console.log("Loaded email:", emailToShow);
+        }
+      } catch (err) {
+        console.error("loadEmail() error:", err);
+        document.getElementById("statusMsg").textContent = "Error loading email.";
+      }
+    }
+    window.onload = loadEmail;
+  </script>
+</body>
+</html>

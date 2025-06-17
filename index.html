@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,21 +10,17 @@
       font-family: Arial, sans-serif;
       margin: 30px;
     }
-
     h2 {
       margin-bottom: 10px;
     }
-
     input, button, select {
       margin: 5px 10px 15px 0;
       padding: 8px;
       font-size: 14px;
     }
-
     input[type="text"], select {
       width: 250px;
     }
-
     button {
       cursor: pointer;
       background-color: #007BFF;
@@ -31,64 +28,43 @@
       border: none;
       border-radius: 4px;
     }
-
     button:disabled {
       background-color: #aaa;
     }
-
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
     }
-
     th, td {
       padding: 10px;
       border: 1px solid #ddd;
     }
-
     th {
       background-color: #f2f2f2;
     }
-
     .score-green {
       color: green;
     }
-
     .score-red {
       color: red;
     }
-
+    .mail-status-sent {
+      color: green;
+      font-weight: bold;
+    }
+    .mail-status-none {
+      color: red;
+      font-weight: bold;
+    }
     a {
       color: blue;
       text-decoration: none;
-    }
-
-    /* Progress bar styles */
-    #progress-container {
-      width: 100%;
-      background-color: #f3f3f3;
-      border-radius: 4px;
-      height: 25px;
-      margin-top: 20px;
-    }
-
-    #progress-bar {
-      height: 100%;
-      background-color: #4caf50;
-      width: 0%;
-      border-radius: 4px;
-    }
-
-    #statusText {
-      margin-top: 10px;
-      font-size: 14px;
     }
   </style>
 </head>
 <body>
   <h2>Saved Leads</h2>
-
   <div>
     <input type="text" id="industryInput" placeholder="Industry (e.g., Software)">
     <input type="text" id="functionInput" placeholder="Function (e.g., Marketing)">
@@ -102,20 +78,10 @@
     <button onclick="fetchNewLeads()">Fetch New Leads</button>
     <input type="text" id="searchInput" placeholder="🔍 Filter table..." onkeyup="filterTable()">
   </div>
-
   <span id="statusMsg"></span>
-
-  <!-- Add a new button for testing all websites' speeds -->
   <div>
     <button id="testAllBtn" onclick="testAllWebsites()">Test All Websites Speed</button>
   </div>
-
-  <!-- Progress bar -->
-  <div id="progress-container">
-    <div id="progress-bar"></div>
-  </div>
-  <div id="statusText"></div> <!-- Text showing the progress -->
-
   <table id="leadsTable">
     <thead>
       <tr>
@@ -127,155 +93,113 @@
         <th>Website</th>
         <th>LinkedIn</th>
         <th>Website Speed</th>
+        <th>Screenshot</th>
+        <th>Mail Panel</th>
+        <th>Mail Status</th>
       </tr>
     </thead>
     <tbody id="tableBody"></tbody>
   </table>
-
-    <script>
-      const BASE_URL = "http://localhost:8000"; // Change this in production
-
-      async function loadLeads() {
-          document.getElementById("tableBody").innerHTML = "";
-          const res = await fetch(`${BASE_URL}/leads`);
-          const data = await res.json();
-          console.log(data);
-          data.sort((a, b) => a.id - b.id);
-          console.log("Sorted Data:", data);
-          data.forEach((lead) => {
-              // Use the id from the database for proper indexing
-              const isGood = lead.website_speed_web && lead.website_speed_web > 80;
-              const webSpeed = lead.website_speed_web != null ? lead.website_speed_web : 'No Speed Test Yet';
-              const mobSpeed = lead.website_speed_mobile != null ? lead.website_speed_mobile : 'No Speed Test Yet';
-
-              const row = document.createElement("tr");
-              row.innerHTML = `
-                  <td>${lead.id}</td>
-                  <td>${lead.first_name} ${lead.last_name}</td>
-                  <td>${lead.email.includes("locked_") ? "Locked" : lead.email}</td>
-                  <td>${lead.title || 'N/A'}</td>
-                  <td>${lead.company}</td>
-                  <td>
-                      ${lead.website_url && lead.website_url !== "None"
-                          ? `<a href="${lead.website_url}" target="_blank">Visit</a>`
-                          : "No website link"
-                      }
-                  </td>
-                  <td><a href="${lead.linkedin_url || '#'}" target="_blank">${lead.linkedin_url ? 'LinkedIn' : 'N/A'}</a></td>
-                  <td class="${isGood ? 'score-green' : 'score-red'}">
-                      ${webSpeed} / ${mobSpeed}<br>
-                      <button id="refreshBtn-${lead.id}" onclick="refreshSpeed(${lead.id})">Refresh Speed</button>
-                  </td>
-              `;
-              document.getElementById("tableBody").appendChild(row);
-          });
+  <script>
+    const BASE_URL = "http://localhost:8000";
+    async function loadLeads() {
+      document.getElementById("tableBody").innerHTML = "";
+      const res = await fetch(`${BASE_URL}/leads`);
+      const data = await res.json();
+      data.sort((a, b) => a.id - b.id);
+      data.forEach((lead) => {
+        const isGood = lead.website_speed_web && lead.website_speed_web > 80;
+        const webSpeed = lead.website_speed_web != null ? lead.website_speed_web : 'No Speed Test Yet';
+        const mobSpeed = lead.website_speed_mobile != null ? lead.website_speed_mobile : 'No Speed Test Yet';
+        const mailStatus = lead.mail_sent ? "Mail Sent" : "No Mail";
+        const mailClass = lead.mail_sent ? "mail-status-sent" : "mail-status-none";
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${lead.id}</td>
+          <td>${lead.first_name} ${lead.last_name}</td>
+          <td>${lead.email.includes("locked_") ? "Locked" : lead.email}</td>
+          <td>${lead.title || 'N/A'}</td>
+          <td>${lead.company}</td>
+          <td>${lead.website_url ? `<a href="${lead.website_url}" target="_blank">Visit</a>` : "No website link"}</td>
+          <td><a href="${lead.linkedin_url || '#'}" target="_blank">${lead.linkedin_url ? 'LinkedIn' : 'N/A'}</a></td>
+          <td class="${isGood ? 'score-green' : 'score-red'}">${webSpeed} / ${mobSpeed}<br><button onclick="refreshSpeed(${lead.id})">Refresh Speed</button></td>
+          <td>${lead.screenshot_url ? `<a href="${lead.screenshot_url}" target="_blank">View</a>` : "N/A"}</td>
+          <td><a href="http://localhost:8000/mail/${lead.id}" target="_blank">Open Mail Panel</a></td>
+          <td class="${mailClass}">${mailStatus}</td>
+        `;
+        document.getElementById("tableBody").appendChild(row);
+      });
+    }
+    function filterTable() {
+      const input = document.getElementById("searchInput").value.toLowerCase();
+      const rows = document.querySelectorAll("#tableBody tr");
+      rows.forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(input) ? "" : "none";
+      });
+    }
+    async function fetchNewLeads() {
+      const industry = document.getElementById("industryInput").value.trim();
+      const functions = document.getElementById("functionInput").value.trim();
+      const seniority = document.getElementById("seniorityInput").value.trim();
+      const perPage = document.getElementById("perPageSelect").value;
+      const params = new URLSearchParams();
+      if (industry) params.append("industry", industry);
+      if (functions) params.append("functions", functions);
+      if (seniority) params.append("seniority", seniority);
+      params.append("per_page", perPage);
+      const button = event.target;
+      const status = document.getElementById("statusMsg");
+      button.disabled = true;
+      status.textContent = "Fetching new leads...";
+      try {
+        await fetch(`${BASE_URL}/import/apollo?${params.toString()}`);
+        status.textContent = `Fetched leads for search.`;
+        await loadLeads();
+      } catch (err) {
+        console.error("Error:", err);
+        status.textContent = "❌ Failed to fetch.";
       }
-
-      function filterTable() {
-          const input = document.getElementById("searchInput").value.toLowerCase();
-          const rows = document.querySelectorAll("#tableBody tr");
-          rows.forEach(row => {
-              row.style.display = row.innerText.toLowerCase().includes(input) ? "" : "none";
-          });
+      button.disabled = false;
+    }
+    async function refreshSpeed(leadId) {
+      const status = document.getElementById("statusMsg");
+      const button = document.getElementById(`refreshBtn-${leadId}`);
+      if (!leadId) {
+        status.textContent = "Invalid lead ID.";
+        return;
       }
-
-      async function fetchNewLeads() {
-          const industry = document.getElementById("industryInput").value.trim();
-          const functions = document.getElementById("functionInput").value.trim();
-          const seniority = document.getElementById("seniorityInput").value.trim();
-          const perPage = document.getElementById("perPageSelect").value;
-
-          const params = new URLSearchParams();
-          if (industry) params.append("industry", industry);
-          if (functions) params.append("functions", functions);
-          if (seniority) params.append("seniority", seniority);
-          params.append("per_page", perPage);
-
-          const button = event.target;
-          const status = document.getElementById("statusMsg");
-
-          button.disabled = true;
-          status.textContent = "Fetching new leads...";
-
-          try {
-              await fetch(`${BASE_URL}/import/apollo?${params.toString()}`);
-              status.textContent = `Fetched leads for search.`;
-              await loadLeads();
-          } catch (err) {
-              console.error("Error:", err);
-              status.textContent = "❌ Failed to fetch.";
-          }
-
-          button.disabled = false;
+      button.disabled = true;
+      button.innerHTML = "Loading...";
+      status.textContent = `Refreshing speed for lead ${leadId}...`;
+      try {
+        const res = await fetch(`${BASE_URL}/speedtest/${leadId}`, { method: "POST" });
+        const data = await res.json();
+        status.textContent = data.message || data.error || "Unknown error.";
+        await loadLeads();
+      } catch (err) {
+        console.error("Error:", err);
+        status.textContent = "Failed to refresh speed.";
       }
-
-      async function refreshSpeed(leadId) {
-          const status = document.getElementById("statusMsg");
-          const button = document.getElementById(`refreshBtn-${leadId}`);
-
-          if (!leadId) {
-              status.textContent = "Invalid lead ID.";
-              return;
-          }
-
-          // Show loading state in the button
-          button.disabled = true;
-          button.innerHTML = "Loading..."; // Change button text to show loading
-
-          status.textContent = `Refreshing speed for lead ${leadId}...`;
-
-          try {
-              const res = await fetch(`${BASE_URL}/speedtest/${leadId}`, {
-                  method: "POST",
-              });
-              const data = await res.json();
-
-              // Update the status message based on the response
-              if (data.message) {
-                  status.textContent = data.message;
-              } else {
-                  status.textContent = data.error || "Unknown error.";
-              }
-
-              // Reload the leads after speed test
-              await loadLeads();
-          } catch (err) {
-              console.error("Error:", err);
-              status.textContent = "Failed to refresh speed.";
-          }
-
-          // Revert button to original state after operation completes
-          button.innerHTML = "Refresh Speed";  // Reset button text
-          button.disabled = false; // Enable the button again
+      button.innerHTML = "Refresh Speed";
+      button.disabled = false;
+    }
+    async function testAllWebsites() {
+      const status = document.getElementById("statusMsg");
+      const button = document.getElementById("testAllBtn");
+      button.disabled = true;
+      status.textContent = "Testing all websites' speeds...";
+      try {
+        const res = await fetch(`${BASE_URL}/speedtest`, { method: "POST" });
+        const data = await res.json();
+        status.textContent = data.message;
+        await loadLeads();
+      } catch (err) {
+        console.error("Error:", err);
+        status.textContent = "Failed to test all websites' speeds.";
       }
-
-      async function testAllWebsites() {
-          const status = document.getElementById("statusMsg");
-          const button = document.getElementById("testAllBtn");
-
-          button.disabled = true;
-          status.textContent = "Testing all websites' speeds...";
-
-          try {
-              const res = await fetch(`${BASE_URL}/speedtest`, {
-                  method: "POST",
-              });
-              const data = await res.json();
-
-              // Show message about the number of websites tested
-              status.textContent = data.message;
-
-              // Reload leads after all websites are tested
-              await loadLeads();
-          } catch (err) {
-              console.error("Error:", err);
-              status.textContent = "Failed to test all websites' speeds.";
-          }
-
-          button.disabled = false;
-      }
-
-      window.onload = loadLeads;
+      button.disabled = false;
+    }
+    window.onload = loadLeads;
   </script>
 </body>
 </html>

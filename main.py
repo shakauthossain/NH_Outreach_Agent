@@ -1,13 +1,16 @@
 from fastapi import FastAPI, Query, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import pandas as pd
 import time
+import os
 
 from apollo import fetch_apollo_leads, get_person_details
-from models import Lead
+from models import Lead, MailBody
 from database import SessionLocal, LeadDB
 from pagespeed import test_all_unspeeded_leads, refresh_speed_for_lead
+from mail_gen import generate_email_from_lead, send_email_to_lead
 
 app = FastAPI()
 
@@ -54,7 +57,8 @@ def get_saved_leads(limit: int = 100):
                 linkedin_url=l.linkedin_url,
                 website_speed_web=l.website_speed_web,
                 website_speed_mobile=l.website_speed_mobile,
-                id=l.id
+                id=l.id,
+                screenshot_url=l.screenshot_url
             )
             for l in db_leads
         ]
@@ -109,3 +113,33 @@ def refresh_one_speed(lead_id: int):
     if web is None and mob is None:
         return {"error": "Speed test failed or lead not found"}
     return {"message": f"Updated: W-{web}, M-{mob}"}
+
+
+@app.post("/generate-mail/{lead_id}")
+def generate_mail(lead_id: int):
+    try:
+        email = generate_email_from_lead(lead_id)
+        return {"email": email}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Generation error: {e}")
+
+@app.post("/send-mail/{lead_id}")
+def send_mail(lead_id: int, mail: MailBody):
+    try:
+        send_email_to_lead(lead_id, mail.email_body)
+        return {"message": "Email sent successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# @app.get("/")
+# def serve_index():
+#     return FileResponse("index.html")
+
+# Route to serve the mail editor for any lead
+@app.get("/mail/{lead_id}")
+def serve_mail_editor(lead_id: int):
+    return FileResponse("mail_editor.html")

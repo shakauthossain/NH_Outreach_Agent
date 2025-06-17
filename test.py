@@ -1,53 +1,36 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from database import Base, LeadDB
+from langchain.prompts import PromptTemplate
+from langchain_groq import ChatGroq
+from database import SessionLocal, LeadDB
 import os
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+def generate_email_from_lead(lead_id: int) -> str:
+    db = SessionLocal()
+    lead = db.query(LeadDB).filter(LeadDB.id == lead_id).first()
+    db.close()
 
-# SQLite (source) setup
-sqlite_engine = create_engine("sqlite:///./leads.db", connect_args={"check_same_thread": False})
-SQLiteSession = sessionmaker(bind=sqlite_engine)
-sqlite_db = SQLiteSession()
+    if not lead:
+        raise ValueError("Lead not found")
 
-# PostgreSQL (destination - NeonDB) setup
-postgres_url = os.getenv("DATABASE_URL")
-postgres_engine = create_engine(postgres_url)
-PostgresSession = sessionmaker(bind=postgres_engine)
-postgres_db = PostgresSession()
+    prompt = PromptTemplate.from_template("""
+        Write a personalized cold sales email to {first_name}, who works as {title} at {company}.
+        Mention that their website {website_url} has a low performance score and we can help improve it.
+        Keep the tone friendly, professional, and focused on booking a short call.
+    """)
 
-# Make sure tables exist in PostgreSQL
-Base.metadata.create_all(bind=postgres_engine)
+    llm = ChatGroq(
+        model_name="llama3-70b-8192",
+        temperature=0.7,
+        groq_api_key=os.getenv("GROQ_API_KEY")
+    )
 
-# Read leads from SQLite
-leads = sqlite_db.query(LeadDB).all()
+    chain = prompt | llm
 
-print(f"Found {len(leads)} leads to migrate.")
+    # new API: use invoke instead of run()
+    result = chain.invoke({
+        "first_name": lead.first_name,
+        "title": lead.title or "",
+        "company": lead.company,
+        "website_url": lead.website_url
+    })
 
-migrated = 0
-for lead in leads:
-    # Check for duplicates by email in Neon
-    existing = postgres_db.query(LeadDB).filter_by(email=lead.email).first()
-    if existing:
-        continue
-
-    try:
-        new_lead = LeadDB(
-            first_name=lead.first_name,
-            last_name=lead.last_name,
-            email=lead.email,
-            title=lead.title,
-            company=lead.company,
-            website_url=lead.website_url,
-            linkedin_url=lead.linkedin_url
-        )
-        postgres_db.add(new_lead)
-        postgres_db.commit()
-        migrated += 1
-    except Exception as e:
-        postgres_db.rollback()
-        print("Error:", e)
-
-print(f"✅ Migration complete: {migrated} leads added to NeonDB.")
+    return result.strip()

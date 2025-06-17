@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
@@ -23,8 +23,12 @@ class LeadDB(Base):
     company = Column(String)
     website_url = Column(String)
     linkedin_url = Column(String)
-    website_speed_web = Column(Integer, nullable=True)  # or Float if needed
-    website_speed_mobile = Column(Integer, nullable=True)  # or Float if needed
+    website_speed_web = Column(Integer, nullable=True)
+    website_speed_mobile = Column(Integer, nullable=True)
+    screenshot_url = Column(String, nullable=True)
+    mail_sent = Column(Boolean, default=False)
+    generated_email = Column(Text, nullable=True)
+    final_email = Column(Text, nullable=True)
 
 # Base.metadata.drop_all(bind=engine)  # Drop existing tables
 Base.metadata.create_all(bind=engine)  # Create the tables again
