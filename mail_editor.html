@@ -44,6 +44,7 @@
   <textarea id="emailBox" readonly></textarea>
   <br />
   <button id="editBtn" onclick="toggleEdit()">Edit</button>
+  <button id="saveBtn" onclick="saveDraft()" disabled>Save Draft</button>
   <button id="sendBtn" onclick="sendEmail()" disabled>Send Email</button>
 
   <script>
@@ -77,12 +78,14 @@
       if (!isEditing) {
         box.removeAttribute("readonly");
         document.getElementById("editBtn").textContent = "Lock";
-        sendBtn.disabled = false;
+        sendBtn.disabled = true;
+        saveBtn.disabled = true;
         isEditing = true;
       } else {
         box.setAttribute("readonly", true);
         document.getElementById("editBtn").textContent = "Edit";
-        sendBtn.disabled = true;
+        sendBtn.disabled = false;
+        saveBtn.disabled = false;
         isEditing = false;
       }
     }
@@ -106,6 +109,29 @@
       } catch (err) {
         console.error(err);
         status.textContent = "Failed to send email.";
+      }
+    }
+
+    async function saveDraft() {
+      const status = document.getElementById("statusMsg");
+      const emailBody = document.getElementById("emailBox").value.trim();
+      if (!emailBody) {
+        status.textContent = "Email content is empty.";
+        return;
+      }
+
+      status.textContent = "Saving draft...";
+      try {
+        const res = await fetch(`${BASE_URL}/save-mail/${leadId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email_body: emailBody })
+        });
+        const data = await res.json();
+        status.textContent = data.message || "Draft saved.";
+      } catch (err) {
+        console.error(err);
+        status.textContent = "Failed to save draft.";
       }
     }
 

@@ -100,6 +100,7 @@
     </thead>
     <tbody id="tableBody"></tbody>
   </table>
+  <div id="pagination" style="margin-top: 20px; text-align: center;"></div>
   <script>
     const BASE_URL = "http://localhost:8000";
     async function loadLeads() {
@@ -122,7 +123,7 @@
           <td>${lead.company}</td>
           <td>${lead.website_url ? `<a href="${lead.website_url}" target="_blank">Visit</a>` : "No website link"}</td>
           <td><a href="${lead.linkedin_url || '#'}" target="_blank">${lead.linkedin_url ? 'LinkedIn' : 'N/A'}</a></td>
-          <td class="${isGood ? 'score-green' : 'score-red'}">${webSpeed} / ${mobSpeed}<br><button onclick="refreshSpeed(${lead.id})">Refresh Speed</button></td>
+          <td class="${isGood ? 'score-green' : 'score-red'}">${webSpeed} / ${mobSpeed}<br><button id="refreshBtn-${lead.id}" onclick="refreshSpeed(${lead.id})">Refresh Speed</button>
           <td>${lead.screenshot_url ? `<a href="${lead.screenshot_url}" target="_blank">View</a>` : "N/A"}</td>
           <td><a href="http://localhost:8000/mail/${lead.id}" target="_blank">Open Mail Panel</a></td>
           <td class="${mailClass}">${mailStatus}</td>
@@ -164,8 +165,8 @@
     async function refreshSpeed(leadId) {
       const status = document.getElementById("statusMsg");
       const button = document.getElementById(`refreshBtn-${leadId}`);
-      if (!leadId) {
-        status.textContent = "Invalid lead ID.";
+      if (!button) {
+        console.warn(`No refresh button found for leadId: ${leadId}`);
         return;
       }
       button.disabled = true;
@@ -198,6 +199,91 @@
         status.textContent = "Failed to test all websites' speeds.";
       }
       button.disabled = false;
+    }
+    let currentPage = 0;
+    let totalLoaded = 0;
+    let PAGE_SIZE = parseInt(document.getElementById("perPageSelect").value);
+
+    document.getElementById("perPageSelect").addEventListener("change", () => {
+      PAGE_SIZE = parseInt(document.getElementById("perPageSelect").value);
+      currentPage = 0;
+      loadLeads();
+    });
+
+    async function loadLeads() {
+      document.getElementById("tableBody").innerHTML = "";
+      const res = await fetch(`${BASE_URL}/leads?skip=${currentPage * PAGE_SIZE}&limit=${PAGE_SIZE}`);
+      const data = await res.json();
+      totalLoaded = data.length;
+
+      data.forEach((lead) => {
+        const isGood = lead.website_speed_web && lead.website_speed_web > 80;
+        const webSpeed = lead.website_speed_web != null ? lead.website_speed_web : 'No Speed Test Yet';
+        const mobSpeed = lead.website_speed_mobile != null ? lead.website_speed_mobile : 'No Speed Test Yet';
+        const mailStatus = lead.mail_sent ? "Mail Sent" : "No Mail";
+        const mailClass = lead.mail_sent ? "mail-status-sent" : "mail-status-none";
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${lead.id}</td>
+          <td>${lead.first_name} ${lead.last_name}</td>
+          <td>${lead.email.includes("locked_") ? "Locked" : lead.email}</td>
+          <td>${lead.title || 'N/A'}</td>
+          <td>${lead.company}</td>
+          <td>${lead.website_url ? `<a href="${lead.website_url}" target="_blank">Visit</a>` : "No website link"}</td>
+          <td><a href="${lead.linkedin_url || '#'}" target="_blank">${lead.linkedin_url ? 'LinkedIn' : 'N/A'}</a></td>
+          <td class="${isGood ? 'score-green' : 'score-red'}">${webSpeed} / ${mobSpeed}<br><button id="refreshBtn-${lead.id}" onclick="refreshSpeed(${lead.id})">Refresh Speed</button></td>
+          <td>${lead.screenshot_url ? `<a href="${lead.screenshot_url}" target="_blank">View</a>` : "N/A"}</td>
+          <td><a href="http://localhost:8000/mail/${lead.id}" target="_blank">Open Mail Panel</a></td>
+          <td class="${mailClass}">${mailStatus}</td>
+        `;
+        document.getElementById("tableBody").appendChild(row);
+      });
+      renderPagination();
+    }
+
+    function renderPagination() {
+      const container = document.getElementById("pagination");
+      container.innerHTML = "";
+
+      const totalPages = totalLoaded < PAGE_SIZE ? currentPage + 1 : currentPage + 2;
+      const fragment = document.createDocumentFragment();
+
+      const prevBtn = document.createElement("button");
+      prevBtn.textContent = "Prev";
+      prevBtn.disabled = currentPage === 0;
+      prevBtn.onclick = () => {
+        currentPage--;
+        loadLeads();
+      };
+      fragment.appendChild(prevBtn);
+
+      for (let i = 0; i < totalPages; i++) {
+        const pageBtn = document.createElement("button");
+        pageBtn.textContent = i + 1;
+        pageBtn.style.margin = "0 3px";
+        if (i === currentPage) {
+          pageBtn.style.backgroundColor = "#ffffff";
+          pageBtn.style.color = "black";
+          pageBtn.style.fontWeight = "bold";
+          pageBtn.style.border = "1px solid black";
+        }
+        pageBtn.onclick = () => {
+          currentPage = i;
+          loadLeads();
+        };
+        fragment.appendChild(pageBtn);
+      }
+
+      const nextBtn = document.createElement("button");
+      nextBtn.textContent = "Next";
+      nextBtn.disabled = totalLoaded < PAGE_SIZE;
+      nextBtn.onclick = () => {
+        currentPage++;
+        loadLeads();
+      };
+      fragment.appendChild(nextBtn);
+      container.appendChild(fragment);
     }
     window.onload = loadLeads;
   </script>

@@ -42,12 +42,18 @@ def import_apollo_leads(
     )
 
 @app.get("/leads", response_model=List[Lead])
-def get_saved_leads(limit: int = 100):
+def get_saved_leads(skip: int = 0, limit: int = 100):
     db = SessionLocal()
     try:
-        db_leads = db.query(LeadDB).limit(limit).all()
+        db_leads = db.query(LeadDB)\
+            .order_by(LeadDB.id)\
+            .offset(skip)\
+            .limit(limit)\
+            .all()
+
         leads = [
             Lead(
+                id=l.id,
                 first_name=l.first_name,
                 last_name=l.last_name,
                 email=l.email,
@@ -57,8 +63,10 @@ def get_saved_leads(limit: int = 100):
                 linkedin_url=l.linkedin_url,
                 website_speed_web=l.website_speed_web,
                 website_speed_mobile=l.website_speed_mobile,
-                id=l.id,
-                screenshot_url=l.screenshot_url
+                screenshot_url=l.screenshot_url,
+                mail_sent=l.mail_sent,
+                generated_email=l.generated_email,
+                final_email=l.final_email
             )
             for l in db_leads
         ]
@@ -125,21 +133,24 @@ def generate_mail(lead_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Generation error: {e}")
 
-@app.post("/send-mail/{lead_id}")
-def send_mail(lead_id: int, mail: MailBody):
-    try:
-        send_email_to_lead(lead_id, mail.email_body)
-        return {"message": "Email sent successfully"}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.post("/save-mail/{lead_id}")
+def save_mail(lead_id: int, body: MailBody):
+    db = SessionLocal()
+    lead = db.query(LeadDB).filter(LeadDB.id == lead_id).first()
+    if not lead:
+        db.close()
+        return {"error": "Lead not found"}
 
-# @app.get("/")
-# def serve_index():
-#     return FileResponse("index.html")
+    lead.final_email = body.email_body
+    db.commit()
+    db.close()
+    return {"message": "Draft saved successfully."}
 
-# Route to serve the mail editor for any lead
 @app.get("/mail/{lead_id}")
 def serve_mail_editor(lead_id: int):
     return FileResponse("mail_editor.html")
+
+@app.post("/send-mail/{lead_id}")
+def send_mail(lead_id: int, body: MailBody):
+    send_email_to_lead(lead_id, body.email_body)
+    return {"message": "Email sent successfully."}

@@ -12,6 +12,9 @@ from database import SessionLocal, LeadDB
 
 load_dotenv()
 Groq_API=os.getenv("GROQ_API_KEY")
+MAIL_UN=os.getenv("MAIL_USERNAME")
+MAIL_PASS=os.getenv("MAIL_PASSWORD")
+MAIL_SENDER=os.getenv("MAIL_SENDER")
 
 def generate_email_from_lead(lead_id: int) -> str:
     db = SessionLocal()
@@ -83,27 +86,29 @@ def send_email_to_lead(lead_id: int, email_body: str) -> None:
         db.close()
         raise ValueError("Lead not found or email missing")
 
-    # Save final edited email before sending
+    # Save the edited final email
     lead.final_email = email_body
 
-    msg = MIMEText(email_body)
+    # Prepare email message
+    html_body = email_body.replace('\n', '<br>')
+    msg = MIMEText(f"<html><body><p>{html_body}</p></body></html>", "html")
     msg["Subject"] = f"Website performance improvements for {lead.company}"
-    msg["From"] = os.getenv("MAIL_SENDER")
+    msg["From"] = MAIL_SENDER
     msg["To"] = lead.email
 
     try:
-        with smtplib.SMTP("smtp.yourprovider.com", 587) as server:
+        with smtplib.SMTP("sandbox.smtp.mailtrap.io", 587) as server:
             server.starttls()
-            server.login(os.getenv("MAIL_USERNAME"), os.getenv("MAIL_PASSWORD"))
+            server.login(MAIL_UN, MAIL_PASS)
             server.send_message(msg)
     except Exception as e:
         db.close()
         raise RuntimeError(f"Mail sending failed: {e}")
 
-    lead.final_email = email_body
+    # Mark as sent and commit
     lead.mail_sent = True
-    if email_body.strip() != lead.generated_email.strip():
-        print("Email was edited before sending")
+    if email_body.strip() != (lead.generated_email or "").strip():
+        print("Email was edited before sending.")
+
     db.commit()
     db.close()
-
