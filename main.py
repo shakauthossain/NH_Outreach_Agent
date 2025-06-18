@@ -22,6 +22,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from auth.routes import router as auth_router
+
+app.include_router(auth_router)
+
 @app.get("/")
 def root():
     return {"message": "NH Outreach Agent API is running"}
