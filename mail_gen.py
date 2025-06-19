@@ -15,6 +15,11 @@ Groq_API=os.getenv("GROQ_API_KEY")
 MAIL_UN=os.getenv("MAIL_USERNAME")
 MAIL_PASS=os.getenv("MAIL_PASSWORD")
 MAIL_SENDER=os.getenv("MAIL_SENDER")
+mode = os.getenv("MAILTRAP_MODE")
+base_domain = os.getenv("BASE_TRACKING_DOMAIN")
+
+smtp_host = os.getenv("MAILTRAP_SANDBOX_HOST") if mode == "sandbox" else os.getenv("MAILTRAP_PROD_HOST")
+smtp_port = int(os.getenv("MAILTRAP_SANDBOX_PORT")) if mode == "sandbox" else int(os.getenv("MAILTRAP_PROD_PORT"))
 
 def generate_email_from_lead(lead_id: int) -> str:
     db = SessionLocal()
@@ -71,6 +76,9 @@ def generate_email_from_lead(lead_id: int) -> str:
     }
 
     email = chain.invoke(variables)
+    if mode != "sandbox":
+        pixel = f'<img src="{base_domain}/tracking/open/{lead.id}" width="1" height="1" style="display:none;">'
+        email += f"\n\n{pixel}"
     lead.generated_email = email
     lead.final_email = email
     db.commit()
@@ -97,7 +105,7 @@ def send_email_to_lead(lead_id: int, email_body: str) -> None:
     msg["To"] = lead.email
 
     try:
-        with smtplib.SMTP("sandbox.smtp.mailtrap.io", 587) as server:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
             server.starttls()
             server.login(MAIL_UN, MAIL_PASS)
             server.send_message(msg)
