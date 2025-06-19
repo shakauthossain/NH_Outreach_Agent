@@ -63,7 +63,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-@router.get("/me", response_model=UserInfo)
+@router.get("/profile", response_model=UserInfo)
 def get_me(user: User = Depends(get_current_user)):
     return user
 @router.post("/logout")
