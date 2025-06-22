@@ -13,13 +13,55 @@ def sanitize_domain(url: str) -> str:
     netloc = urlparse(url).netloc
     return netloc.replace(".", "_").replace(":", "_")
 
-def get_pagespeed_score_and_screenshot(url: str, strategy: str) -> tuple[int | None, str | None]:
+def get_pagespeed_score_and_screenshot(url: str, strategy: str) -> tuple[dict | None, str | None, dict | None, dict | None]:
     try:
         api = f"https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={url}&strategy={strategy}&key={GOOGLE_API_KEY}"
         res = requests.get(api).json()
-        score = res["lighthouseResult"]["categories"]["performance"]["score"]
 
-        screenshot_data_uri = res["lighthouseResult"]["audits"]["final-screenshot"]["details"]["data"]
+        categories = res["lighthouseResult"]["categories"]
+        scores = {
+            "performance": int(categories["performance"]["score"] * 100),
+            "accessibility": int(categories["accessibility"]["score"] * 100),
+            "seo": int(categories["seo"]["score"] * 100),
+            "best_practices": int(categories["best-practices"]["score"] * 100)
+        }
+
+        audits = res["lighthouseResult"]["audits"]
+
+        # Extract key metrics (FCP, LCP, TBT, Speed Index, CLS)
+        metric_keys = [
+            "first-contentful-paint",
+            "largest-contentful-paint",
+            "speed-index",
+            "total-blocking-time",
+            "cumulative-layout-shift"
+        ]
+        metrics_data = {
+            key: {
+                "title": audits[key].get("title"),
+                "displayValue": audits[key].get("displayValue"),
+                "numericValue": audits[key].get("numericValue")
+            }
+            for key in metric_keys if key in audits
+        }
+
+        # Extract diagnostics
+        diagnostics_keys = [
+            "diagnostics",
+            "network-rtt",
+            "mainthread-work-breakdown",
+            "bootup-time",
+            "uses-rel-preconnect",
+            "unminified-css",
+            "unminified-javascript",
+            "unused-css-rules",
+            "uses-webp-images",
+            "render-blocking-resources"
+        ]
+        diagnostics_data = {k: audits[k] for k in diagnostics_keys if k in audits}
+
+        # Save screenshot
+        screenshot_data_uri = audits["final-screenshot"]["details"]["data"]
         img_data = base64.b64decode(screenshot_data_uri.split(",")[1])
 
         domain = sanitize_domain(url)
@@ -32,10 +74,12 @@ def get_pagespeed_score_and_screenshot(url: str, strategy: str) -> tuple[int | N
         with open(filepath, "wb") as f:
             f.write(img_data)
 
-        return int(score * 100), f"/{filepath}"
+        return scores, f"/{filepath}", diagnostics_data, metrics_data
+
     except Exception as e:
         print(f"Error testing {url} ({strategy}): {e}")
-        return None, None
+        return None, None, None, None
+
 
 def test_all_unspeeded_leads():
     db = SessionLocal()
@@ -49,22 +93,32 @@ def test_all_unspeeded_leads():
         if not lead.website_url:
             continue
 
-        web_score, desktop_screenshot = get_pagespeed_score_and_screenshot(lead.website_url, "desktop")
-        mob_score, mobile_screenshot = get_pagespeed_score_and_screenshot(lead.website_url, "mobile")
+        scores_web, desktop_screenshot, _ = get_pagespeed_score_and_screenshot(lead.website_url, "desktop")
+        scores_mob, mobile_screenshot, mob_diagnostics = get_pagespeed_score_and_screenshot(lead.website_url, "mobile")
 
-        if web_score is not None:
-            lead.website_speed_web = web_score
-        if mob_score is not None:
-            lead.website_speed_mobile = mob_score
+        if scores_web:
+            lead.website_speed_web = scores_web["performance"]
+            # Optional: store other scores
+            # lead.accessibility_score = scores_web["accessibility"]
+            # lead.seo_score = scores_web["seo"]
 
-        # Save one of the screenshots, or both if you create separate fields
+        if scores_mob:
+            lead.website_speed_mobile = scores_mob["performance"]
+            # Optional: store other scores
+            # lead.accessibility_score = scores_mob["accessibility"]
+            # lead.seo_score = scores_mob["seo"]
+
         if desktop_screenshot:
             lead.screenshot_url = desktop_screenshot
 
-        if web_score is not None or mob_score is not None:
+        if mob_diagnostics:
+            lead.pagespeed_diagnostics = mob_diagnostics
+
+        if scores_web or scores_mob:
             db.commit()
             count += 1
-            print(f"{lead.website_url} → W-{web_score}, M-{mob_score}, Screenshot: {desktop_screenshot}")
+            print(f"{lead.website_url} → W-{scores_web['performance'] if scores_web else '-'}, "
+                  f"M-{scores_mob['performance'] if scores_mob else '-'}")
     db.close()
     return count
 
@@ -75,17 +129,22 @@ def refresh_speed_for_lead(lead_id: int) -> tuple[int | None, int | None]:
         db.close()
         return None, None
 
-    web_score, desktop_screenshot = get_pagespeed_score_and_screenshot(lead.website_url, "desktop")
-    mob_score, mobile_screenshot = get_pagespeed_score_and_screenshot(lead.website_url, "mobile")
+    scores_web, desktop_screenshot, _ = get_pagespeed_score_and_screenshot(lead.website_url, "desktop")
+    scores_mob, mobile_screenshot, mob_diagnostics = get_pagespeed_score_and_screenshot(lead.website_url, "mobile")
 
-    if web_score is not None:
-        lead.website_speed_web = web_score
-    if mob_score is not None:
-        lead.website_speed_mobile = mob_score
+    if scores_web:
+        lead.website_speed_web = scores_web["performance"]
+    if scores_mob:
+        lead.website_speed_mobile = scores_mob["performance"]
     if desktop_screenshot:
         lead.screenshot_url = desktop_screenshot
+    if mob_diagnostics:
+        lead.pagespeed_diagnostics = mob_diagnostics
 
-    if web_score is not None or mob_score is not None:
+    if scores_web or scores_mob:
         db.commit()
     db.close()
-    return web_score, mob_score
+    return (
+        scores_web["performance"] if scores_web else None,
+        scores_mob["performance"] if scores_mob else None
+    )

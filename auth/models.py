@@ -32,3 +32,10 @@ class UserInfo(BaseModel):
 
     class Config:
         orm_mode = True
+
+class OTPVerifyRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
+class ResendOTPRequest(BaseModel):
+    email: EmailStr

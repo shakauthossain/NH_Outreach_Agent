@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, Text
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, Text, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
@@ -29,6 +29,11 @@ class LeadDB(Base):
     mail_sent = Column(Boolean, default=False)
     generated_email = Column(Text, nullable=True)
     final_email = Column(Text, nullable=True)
+    pagespeed_diagnostics = Column(JSON, nullable=True)
+    accessibility_score = Column(Integer, nullable=True)
+    seo_score = Column(Integer, nullable=True)
+    best_practices_score = Column(Integer, nullable=True)
+
 
 # Base.metadata.drop_all(bind=engine)  # Drop existing tables
 Base.metadata.create_all(bind=engine)  # Create the tables again

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from database import Base
 
 class User(Base):
@@ -12,3 +12,7 @@ class User(Base):
     company = Column(String, nullable=True)
     position = Column(String, nullable=True)
     hashed_password = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True)
+    is_verified = Column(Boolean, default=False)
+    otp_code = Column(String, nullable=True)
+    otp_expires_at = Column(DateTime, nullable=True)

@@ -16,6 +16,9 @@ class Lead(BaseModel):
     mail_sent: Optional[bool] = False
     generated_email: Optional[str] = None
     final_email: Optional[str] = None
+    accessibility_score: Optional[int] = None
+    seo_score: Optional[int] = None
+    best_practices_score: Optional[int] = None
 
     class Config:
         orm_mode = True
