@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 from pydantic import BaseModel
 
 class Lead(BaseModel):
@@ -16,9 +16,12 @@ class Lead(BaseModel):
     mail_sent: Optional[bool] = False
     generated_email: Optional[str] = None
     final_email: Optional[str] = None
+    pagespeed_diagnostics: Optional[Dict[str, Any]] = None
     accessibility_score: Optional[int] = None
     seo_score: Optional[int] = None
     best_practices_score: Optional[int] = None
+    pagespeed_metrics_mobile: Optional[Dict[str, Any]] = None
+    pagespeed_metrics_desktop: Optional[Dict[str, Any]] = None
 
     class Config:
         orm_mode = True

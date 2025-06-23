@@ -100,7 +100,10 @@ def get_saved_leads(skip: int = 0, limit: int = 100):
                 screenshot_url=l.screenshot_url,
                 mail_sent=l.mail_sent,
                 generated_email=l.generated_email,
-                final_email=l.final_email
+                final_email=l.final_email,
+                pagespeed_diagnostics=l.pagespeed_diagnostics,
+                pagespeed_metrics_mobile = l.pagespeed_metrics_mobile,
+               pagespeed_metrics_desktop = l.pagespeed_metrics_desktop
             )
             for l in db_leads
         ]
