@@ -1,36 +1,89 @@
-from langchain.prompts import PromptTemplate
-from langchain_groq import ChatGroq
-from database import SessionLocal, LeadDB
-import os
+import requests
+import time
+import csv
 
-def generate_email_from_lead(lead_id: int) -> str:
-    db = SessionLocal()
-    lead = db.query(LeadDB).filter(LeadDB.id == lead_id).first()
-    db.close()
+API_KEY = "pit-d9c5edbd-3052-4bf4-bdff-0ac6a7f5ae45"
+LOCATION_ID = "rUN95HmRJPwHvhPNFuz0"
 
-    if not lead:
-        raise ValueError("Lead not found")
+BASE_URL = "https://services.leadconnectorhq.com/contacts/"
+HEADERS = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Version": "2021-07-28",
+    "Content-Type": "application/json"
+}
 
-    prompt = PromptTemplate.from_template("""
-        Write a personalized cold sales email to {first_name}, who works as {title} at {company}.
-        Mention that their website {website_url} has a low performance score and we can help improve it.
-        Keep the tone friendly, professional, and focused on booking a short call.
-    """)
+# 👇 If your "designation" or "website_url" are custom fields, add their API keys here
+CUSTOM_FIELDS_MAP = {
+    "designation": "designation",       # change if your actual custom field ID is different
+    "website_url": "website_url"        # same here
+}
 
-    llm = ChatGroq(
-        model_name="llama3-70b-8192",
-        temperature=0.7,
-        groq_api_key=os.getenv("GROQ_API_KEY")
-    )
+def extract_custom_field(contact, field_key):
+    """Get a custom field value by field key"""
+    custom_fields = contact.get("customField", {})
+    return custom_fields.get(field_key, "")
 
-    chain = prompt | llm
+def get_all_contacts():
+    all_contacts = []
+    seen_ids = set()
+    limit = 100
+    start_after_id = None
 
-    # new API: use invoke instead of run()
-    result = chain.invoke({
-        "first_name": lead.first_name,
-        "title": lead.title or "",
-        "company": lead.company,
-        "website_url": lead.website_url
-    })
+    while True:
+        params = {
+            "locationId": LOCATION_ID,
+            "limit": limit
+        }
 
-    return result.strip()
+        if start_after_id:
+            params["startAfterId"] = start_after_id
+
+        response = requests.get(BASE_URL, headers=HEADERS, params=params)
+
+        if response.status_code != 200:
+            print("❌ Error:", response.status_code, response.text)
+            break
+
+        data = response.json()
+        contacts = data.get("contacts", [])
+
+        if not contacts:
+            break
+
+        last_id = contacts[-1]["id"]
+        if last_id in seen_ids:
+            print("⚠️ Duplicate last ID detected — stopping to avoid infinite loop.")
+            break
+
+        seen_ids.add(last_id)
+        all_contacts.extend(contacts)
+        print(f"✅ Fetched {len(contacts)} contacts (Total: {len(all_contacts)})")
+
+        start_after_id = last_id
+        time.sleep(0.5)
+
+    return all_contacts
+
+def save_contacts_to_csv(contacts, filename="ghl_leads.csv"):
+    fieldnames = ["first_name", "last_name", "designation", "company_name", "email", "website_url"]
+
+    with open(filename, mode="w", newline='', encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for c in contacts:
+            writer.writerow({
+                "first_name": c.get("firstName", ""),
+                "last_name": c.get("lastName", ""),
+                "designation": extract_custom_field(c, CUSTOM_FIELDS_MAP["designation"]),
+                "company_name": c.get("companyName", ""),
+                "email": c.get("email", ""),
+                "website_url": c.get("website", ""),
+            })
+
+    print(f"\n📁 Saved {len(contacts)} contacts to {filename}")
+
+
+# Run
+contacts = get_all_contacts()
+save_contacts_to_csv(contacts)

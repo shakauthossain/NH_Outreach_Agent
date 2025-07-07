@@ -1,35 +1,33 @@
-from fastapi import FastAPI, Query, UploadFile, File, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Query, UploadFile, File, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
 from typing import List
 import pandas as pd
 import time
 import os
 
+from auth.routes import router as auth_router
 from apollo import fetch_apollo_leads, get_person_details
 from models import Lead, MailBody
 from database import SessionLocal, LeadDB
 from pagespeed import test_all_unspeeded_leads, refresh_speed_for_lead
 from mail_gen import generate_email_from_lead, send_email_to_lead
+from pagespeed import get_pagespeed_score_and_screenshot
+from test1 import fetch_gohighlevel_leads
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change to specific domains in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-from auth.routes import router as auth_router
-
 app.include_router(auth_router)
-
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from fastapi import Request
-from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -40,9 +38,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "body": exc.body,
         },
     )
-
-
-from pagespeed import get_pagespeed_score_and_screenshot
 
 
 @app.get("/test-pagespeed")
@@ -65,14 +60,14 @@ def import_apollo_leads(
     industry: str = None,
     functions: str = None,
     seniority: str = None,
-    per_page: int = 10  # <-- get this from frontend
+    per_page: int = 10
 ):
     return fetch_apollo_leads(
         industry=industry,
         functions=functions,
         seniority=seniority,
-        desired_count=per_page,  # <-- now using frontend's value
-        per_page=per_page         # optional, but keeps request page size
+        desired_count=per_page,
+        per_page=per_page
     )
 
 @app.get("/leads", response_model=List[Lead])
@@ -124,6 +119,13 @@ def enrich_all_leads():
         if not lead.email.startswith("locked_"):
             continue
 
+        if "apollo.com" in lead.email:
+            source = "apollo"
+        elif "gohighlevel.com" in lead.email:
+            source = "ghl"
+        else:
+            continue
+
         person_id = lead.email.replace("locked_", "").split("@")[0]
         enriched = get_person_details(person_id)
 
@@ -141,11 +143,17 @@ def enrich_all_leads():
         if real_email or title:
             db.commit()
             updated += 1
-            print(f"✅ Updated {lead.first_name} {lead.last_name}: email={real_email}, title={title}")
+            print(f"Updated {lead.first_name} {lead.last_name}: email={real_email}, title={title}")
 
     db.close()
     return {"message": f"Enriched and updated {updated} leads"}
 
+@app.get("/import/gohighlevel", response_model=List[Lead])
+def import_gohighlevel_leads(per_page: int = 20):
+    return fetch_gohighlevel_leads(
+        desired_count=per_page,
+        per_page=per_page
+    )
 
 @app.post("/speedtest")
 def run_bulk_speedtest():
@@ -158,7 +166,6 @@ def refresh_one_speed(lead_id: int):
     if web is None and mob is None:
         return {"error": "Speed test failed or lead not found"}
     return {"message": f"Updated: W-{web}, M-{mob}"}
-
 
 @app.post("/generate-mail/{lead_id}")
 def generate_mail(lead_id: int):

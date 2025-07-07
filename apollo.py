@@ -11,25 +11,8 @@ load_dotenv()
 
 API_KEY = os.getenv("APOLLO_API_KEY")
 EnrichAPI_KEY = os.getenv("EnrichAPOLLO_API_KEY")
-
-
-def get_person_details(person_id: str) -> dict:
-    url = f"https://api.apollo.io/v1/people/match?id={person_id}"
-    headers = {
-        "X-Api-Key": EnrichAPI_KEY,
-        "Content-Type": "application/json"
-    }
-
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 429:
-            print(f"Rate limit hit for {person_id}, skipping for now.")
-            return {}
-        response.raise_for_status()
-        return response.json().get("person", {})
-    except Exception as e:
-        print(f"Error unlocking {person_id}: {e}")
-        return {}
+GoHighLevel_key = os.getenv("GOHIGHLEVEL_KEY")
+Location_ID = os.getenv("GOHIGHLEVEL_LOCATION_ID")
 
 def get_person_details(person_id: str) -> dict:
     url = f"https://api.apollo.io/v1/people/match?id={person_id}"
