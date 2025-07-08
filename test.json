@@ -1,1 +1,118 @@
-{"diagnostics":{"id":"diagnostics","title":"Diagnostics","description":"Collection of useful page vitals.","score":1,"scoreDisplayMode":"informative","details":{"items":[{"numTasksOver10ms":41,"maxRtt":99.05192999999998,"numScripts":59,"numTasksOver25ms":20,"numFonts":8,"numTasksOver100ms":3,"mainDocumentTransferSize":30272,"rtt":0.0002671325198629551,"maxServerLatency":106,"totalTaskTime":3630.4659999999913,"numTasksOver50ms":10,"numRequests":261,"numStylesheets":12,"numTasksOver500ms":0,"numTasks":5110,"throughput":443006869.6480165,"totalByteWeight":18406660}],"type":"debugdata"}},"network-rtt":{"id":"network-rtt","title":"Network Round Trip Times","description":"Network round trip times (RTT) have a large impact on performance. If the RTT to an origin is high, it's an indication that servers closer to the user could improve performance. [Learn more about the Round Trip Time](https://hpbn.co/primer-on-latency-and-bandwidth/).","score":1,"scoreDisplayMode":"informative","displayValue":"100 ms","details":{"type":"table","items":[{"rtt":99.05192999999998,"origin":"https://collector-7865.tvsquared.com"},{"rtt":46.965105,"origin":"https://ad.ipredictive.com"},{"rtt":33.461639999999996,"origin":"https://6jk6d9jp92.execute-api.us-east-2.amazonaws.com"},{"rtt":28.447425,"origin":"https://cdn.trustedform.com"},{"rtt":26.803770000000007,"origin":"https://brands-api.consumeraffairs.com"},{"origin":"https://dgbixniqt3.execute-api.us-east-2.amazonaws.com","rtt":25.347510000000003},{"origin":"https://app.upsellit.com","rtt":20.85237},{"origin":"https://rum-collector-2.pingdom.net","rtt":15.432554999999995},{"rtt":12.831885,"origin":"https://perf-na1.hsforms.com"},{"origin":"https://track.hubspot.com","rtt":10.484369999999998},{"origin":"https://tags.w55c.net","rtt":8.15058},{"origin":"https://www.facebook.com","rtt":8.089424999999999},{"origin":"https://api.trustedform.com","rtt":5.628900000000002},{"rtt":4.6694249999999995,"origin":"https://pixeldev.lw.direct"},{"rtt":2.4698700000000002,"origin":"https://leadsubmission.enduranceapi.com"},{"rtt":2.0164125000000004,"origin":"https://aspect.consumeraffairs.com"},{"rtt":1.8211574999999989,"origin":"https://cta-service-cms2.hubspot.com"},{"rtt":1.8056699999999997,"origin":"https://js.adsrvr.org"},{"origin":"https://js-na1.hs-scripts.com","rtt":1.66923},{"origin":"https://lwjs.azureedge.net","rtt":1.51506},{"origin":"https://js.hs-scripts.com","rtt":1.2998699999999999},{"rtt":1.262385,"origin":"https://lwpixel.azurefd.net"},{"rtt":1.2012900000000002,"origin":"https://insight.adsrvr.org"},{"origin":"https://rum-static.pingdom.net","rtt":0.9940049999999999},{"rtt":0.8999999999999999,"origin":"https://googleads.g.doubleclick.net"},{"rtt":0.8999999999999999,"origin":"https://widget.trustpilot.com"},{"origin":"https://dev.visualwebsiteoptimizer.com","rtt":0.8999999999999999},{"rtt":0.8999999999999999,"origin":"https://www.google.com"},{"rtt":0.8999999999999999,"origin":"https://www.google.com.bd"},{"origin":"https://script.crazyegg.com","rtt":0.8999999999999999},{"rtt":0.8999999999999999,"origin":"https://www.gstatic.com"},{"rtt":0.8999999999999999,"origin":"https://ad.doubleclick.net"},{"origin":"https://11601463.fls.doubleclick.net","rtt":0.8999999999999999},{"rtt":0.8999999999999999,"origin":"https://td.doubleclick.net"},{"rtt":0.8999999999999999,"origin":"https://pixel.lw.direct"},{"rtt":0.8999999999999999,"origin":"https://adservice.google.com"},{"rtt":0.8999999999999999,"origin":"https://analytics.google.com"},{"rtt":0.8999999999999999,"origin":"https://api.ipdata.co"},{"origin":"https://match.adsrvr.org","rtt":0.8999999999999999},{"rtt":0.04280608945878798,"origin":"https://www.upsellit.com"},{"origin":"https://bat.bing.com","rtt":0.004731792423716874},{"rtt":0.0026435085167515254,"origin":"https://www.mczbf.com"},{"rtt":0.0017156198495901836,"origin":"https://js.hs-banner.com"},{"origin":"https://js.hubspot.com","rtt":0.0016655870184800236},{"rtt":0.0012439170915743746,"origin":"https://www.googleadservices.com"},{"rtt":0.0011281558125894162,"origin":"https://connect.facebook.net"},{"rtt":0.0011127850395486266,"origin":"https://www.endurancewarranty.com"},{"rtt":0.0006282235561709006,"origin":"https://js.hs-analytics.net"},{"rtt":0.0002671325198629551,"origin":"https://www.googletagmanager.com"}],"sortedBy":["rtt"],"headings":[{"label":"URL","valueType":"text","key":"origin"},{"valueType":"ms","label":"Time Spent","key":"rtt","granularity":1}]},"numericValue":99.05192999999998,"numericUnit":"millisecond"},"mainthread-work-breakdown":{"id":"mainthread-work-breakdown","title":"Minimize main-thread work","description":"Consider reducing the time spent parsing, compiling and executing JS. You may find delivering smaller JS payloads helps with this. [Learn how to minimize main-thread work](https://developer.chrome.com/docs/lighthouse/performance/mainthread-work-breakdown/)","score":0,"scoreDisplayMode":"metricSavings","displayValue":"4.4 s","metricSavings":{"TBT":250},"details":{"sortedBy":["duration"],"headings":[{"label":"Category","valueType":"text","key":"groupLabel"},{"granularity":1,"valueType":"ms","label":"Time Spent","key":"duration"}],"type":"table","items":[{"duration":1841.4587999999358,"group":"scriptEvaluation","groupLabel":"Script Evaluation"},{"group":"other","groupLabel":"Other","duration":1202.6963999999753},{"duration":473.49479999999903,"group":"styleLayout","groupLabel":"Style & Layout"},{"group":"paintCompositeRender","duration":417.04439999999516,"groupLabel":"Rendering"},{"group":"scriptParseCompile","duration":205.60559999999978,"groupLabel":"Script Parsing & Compilation"},{"group":"garbageCollection","groupLabel":"Garbage Collection","duration":165.4356000000001},{"groupLabel":"Parse HTML & CSS","duration":50.82360000000002,"group":"parseHTML"}]},"numericValue":4356.559199999905,"numericUnit":"millisecond"},"bootup-time":{"id":"bootup-time","title":"Reduce JavaScript execution time","description":"Consider reducing the time spent parsing, compiling, and executing JS. You may find delivering smaller JS payloads helps with this. [Learn how to reduce Javascript execution time](https://developer.chrome.com/docs/lighthouse/performance/bootup-time/).","score":0,"scoreDisplayMode":"metricSavings","displayValue":"1.6 s","metricSavings":{"TBT":400},"details":{"summary":{"wastedMs":1593.6395999999947},"headings":[{"label":"URL","valueType":"url","key":"url"},{"valueType":"ms","granularity":1,"label":"Total CPU Time","key":"total"},{"key":"scripting","granularity":1,"label":"Script Evaluation","valueType":"ms"},{"label":"Script Parse","granularity":1,"valueType":"ms","key":"scriptParseCompile"}],"items":[{"scripting":115.50480000000009,"scriptParseCompile":33.629999999999995,"url":"https://www.endurancewarranty.com/","total":1647.1775999999945},{"scripting":418.73519999999536,"total":450.12239999999537,"url":"https://aspect.consumeraffairs.com/assets/index-D9O1IDFh.js","scriptParseCompile":5.088},{"scripting":6.697199999999996,"scriptParseCompile":0,"url":"Unattributable","total":440.81039999999075},{"scripting":385.27919999999796,"url":"https://cdn.trustedform.com/trustedform-1.10.18.js","scriptParseCompile":3.1715999999999998,"total":431.848799999998},{"total":235.3860000000007,"scripting":107.0616000000006,"scriptParseCompile":15.331199999999999,"url":"https://www.googletagmanager.com/gtag/js?id=G-3RSTQ8PEQ2&cx=c&gtm=45He56g0v6598268za200&tag_exp=101509157~102015666~103116026~103200004~103233427~103351869~103351871~104684208~104684211~104718208~104766476~104766478~104791498~104791500"},{"url":"https://www.googletagmanager.com/gtm.js?id=GTM-WVWSM2","total":226.70280000000017,"scriptParseCompile":13.846800000000002,"scripting":204.67560000000017},{"scriptParseCompile":2.4912,"scripting":62.65560000000009,"url":"https://www.endurancewarranty.com/wp-includes/js/jquery/jquery.min.js?ver=3.7.1","total":94.6764000000001},{"url":"https://www.googletagmanager.com/gtag/js?id=AW-806092204&cx=c&gtm=45He56g0v6598268za200&tag_exp=101509157~102015666~103116026~103200004~103233427~103351869~103351871~104684208~104684211~104718208~104766476~104766478~104791498~104791500","scripting":82.19280000000036,"total":93.52200000000036,"scriptParseCompile":10.589999999999998},{"scriptParseCompile":8.5032,"scripting":56.5596,"url":"https://www.googletagmanager.com/gtag/js?id=DC-11601463&cx=c&gtm=45He56g0v6598268za200&tag_exp=101509157~102015666~103116026~103200004~103233427~103351869~103351871~104684208~104684211~104718208~104766476~104766478~104791498~104791500","total":65.9712},{"url":"https://www.googletagmanager.com/gtag/destination?id=AW-950283930&cx=c&gtm=45be56g0v9212860943za200zb6598268&tag_exp=101509157~103116026~103200004~103233427~103351869~103351871~104684208~104684211~104718208~104766476~104766478~104791498~104791500","scripting":51.33239999999986,"scriptParseCompile":10.2852,"total":62.08559999999986},{"total":57.18720000000013,"scripting":0.0084,"url":"https://aspect.consumeraffairs.com/widget?paginate_by=15&showCity=false&showState=true&carouselSpeed=medium&theme=light&desktopCols=2&showStarRating=true&mobileCols=1&showCreated=true&id=11026&reviewCards=medium&variantType=horizontalcar&showReview...%2C4=&numberPerRow=4&cardColor=alpha-gray&showReviewerName=true&showReviewCount=true","scriptParseCompile":0}],"sortedBy":["total"],"type":"table"},"numericValue":1593.6395999999947,"numericUnit":"millisecond"},"uses-rel-preconnect":{"id":"uses-rel-preconnect","title":"Preconnect to required origins","description":"Consider adding `preconnect` or `dns-prefetch` resource hints to establish early connections to important third-party origins. [Learn how to preconnect to required origins](https://developer.chrome.com/docs/lighthouse/performance/uses-rel-preconnect/).","score":1,"scoreDisplayMode":"metricSavings","metricSavings":{"LCP":0,"FCP":0},"details":{"type":"opportunity","sortedBy":["wastedMs"],"headings":[],"items":[],"overallSavingsMs":0},"warnings":[],"numericValue":0,"numericUnit":"millisecond"},"unminified-css":{"id":"unminified-css","title":"Minify CSS","description":"Minifying CSS files can reduce network payload sizes. [Learn how to minify CSS](https://developer.chrome.com/docs/lighthouse/performance/unminified-css/).","score":1,"scoreDisplayMode":"metricSavings","metricSavings":{"LCP":0,"FCP":0},"details":{"sortedBy":["wastedBytes"],"debugData":{"metricSavings":{"LCP":0,"FCP":0},"type":"debugdata"},"type":"opportunity","overallSavingsBytes":0,"overallSavingsMs":0,"headings":[],"items":[]},"numericValue":0,"numericUnit":"millisecond"},"unminified-javascript":{"id":"unminified-javascript","title":"Minify JavaScript","description":"Minifying JavaScript files can reduce payload sizes and script parse time. [Learn how to minify JavaScript](https://developer.chrome.com/docs/lighthouse/performance/unminified-javascript/).","score":0,"scoreDisplayMode":"metricSavings","displayValue":"Est savings of 54 KiB","metricSavings":{"LCP":300,"FCP":0},"details":{"items":[{"totalBytes":128812,"wastedPercent":35.93553840225727,"wastedBytes":46289,"url":"https://www.endurancewarranty.com/wp-content/themes/endurancewarranty/includes/js/jquery.main.js?ver=1741980604"},{"url":"https://www.endurancewarranty.com/wp-content/themes/endurancewarranty/includes/js/general.js?ver=1749077662","totalBytes":17807,"wastedPercent":28.90418939674806,"wastedBytes":5147},{"wastedPercent":14.919055978154871,"totalBytes":14238,"url":"https://www.upsellit.com/active/endurance.jsp","wastedBytes":2124},{"totalBytes":5595,"wastedPercent":37.14548168561258,"wastedBytes":2078,"url":"https://pixel.lw.direct/endurance.js"}],"sortedBy":["wastedBytes"],"overallSavingsBytes":55638,"type":"opportunity","overallSavingsMs":300,"debugData":{"metricSavings":{"FCP":0,"LCP":300},"type":"debugdata"},"headings":[{"valueType":"url","label":"URL","key":"url"},{"label":"Transfer Size","valueType":"bytes","key":"totalBytes"},{"key":"wastedBytes","label":"Est Savings","valueType":"bytes"}]},"warnings":[],"numericValue":300,"numericUnit":"millisecond"},"unused-css-rules":{"id":"unused-css-rules","title":"Reduce unused CSS","description":"Reduce unused rules from stylesheets and defer CSS not used for above-the-fold content to decrease bytes consumed by network activity. [Learn how to reduce unused CSS](https://developer.chrome.com/docs/lighthouse/performance/unused-css-rules/).","score":0,"scoreDisplayMode":"metricSavings","displayValue":"Est savings of 261 KiB","metricSavings":{"LCP":600,"FCP":0},"details":{"items":[{"totalBytes":166088,"wastedBytes":158280,"url":"https://aspect.consumeraffairs.com/assets/index-Z8oJM6nV.css","wastedPercent":95.29887770338615},{"url":"https://www.endurancewarranty.com/wp-content/themes/endurancewarranty/dist/assets/css/app.css?ver=1749668966","wastedBytes":46011,"wastedPercent":84.73508099006386,"totalBytes":54300},{"wastedBytes":35497,"url":"https://www.endurancewarranty.com/wp-includes/css/dashicons.min.css?ver=1749668966","totalBytes":35497,"wastedPercent":100},{"url":"https://www.endurancewarranty.com/wp-content/plugins/formidable/css/formidableforms.css?ver=1749668966","totalBytes":27553,"wastedBytes":27065,"wastedPercent":98.22967917994022}],"overallSavingsBytes":266853,"type":"opportunity","sortedBy":["wastedBytes"],"headings":[{"label":"URL","valueType":"url","key":"url"},{"label":"Transfer Size","valueType":"bytes","key":"totalBytes"},{"label":"Est Savings","valueType":"bytes","key":"wastedBytes"}],"debugData":{"type":"debugdata","metricSavings":{"LCP":600,"FCP":0}},"overallSavingsMs":600},"numericValue":600,"numericUnit":"millisecond"},"render-blocking-resources":{"id":"render-blocking-resources","title":"Eliminate render-blocking resources","description":"Resources are blocking the first paint of your page. Consider delivering critical JS/CSS inline and deferring all non-critical JS/styles. [Learn how to eliminate render-blocking resources](https://developer.chrome.com/docs/lighthouse/performance/render-blocking-resources/).","score":0,"scoreDisplayMode":"metricSavings","displayValue":"Est savings of 150 ms","metricSavings":{"LCP":0,"FCP":150},"details":{"type":"opportunity","items":[{"totalBytes":31215,"wastedMs":150,"url":"https://www.endurancewarranty.com/wp-includes/js/jquery/jquery.min.js?ver=3.7.1"}],"headings":[{"key":"url","valueType":"url","label":"URL"},{"label":"Transfer Size","key":"totalBytes","valueType":"bytes"},{"key":"wastedMs","valueType":"timespanMs","label":"Est Savings"}],"overallSavingsMs":150},"numericValue":150,"numericUnit":"millisecond"}}
+{
+  "contact": {
+    "id": "seD4PfOuKoVMLkEZqohJ",
+    "name": "rubika deo",
+    "locationId": "ve9EPM428h8vShlRW1KT",
+    "firstName": "rubika",
+    "lastName": "Deo",
+    "email": "rubika@deos.com",
+    "emailLowerCase": "rubika@deos.com",
+    "timezone": "",
+    "companyName": "DGS VolMAX",
+    "phone": "+18832327657",
+    "dnd": true,
+    "dndSettings": {
+      "Call": {
+        "status": "active",
+        "message": "string",
+        "code": "string"
+      },
+      "Email": {
+        "status": "active",
+        "message": "string",
+        "code": "string"
+      },
+      "SMS": {
+        "status": "active",
+        "message": "string",
+        "code": "string"
+      },
+      "WhatsApp": {
+        "status": "active",
+        "message": "string",
+        "code": "string"
+      },
+      "GMB": {
+        "status": "active",
+        "message": "string",
+        "code": "string"
+      },
+      "FB": {
+        "status": "active",
+        "message": "string",
+        "code": "string"
+      }
+    },
+    "type": "read",
+    "source": "public api",
+    "assignedTo": "ve9EPM428h8vShlRW1KT",
+    "address1": "3535 1st St N",
+    "city": "ruDolomitebika",
+    "state": "AL",
+    "country": "US",
+    "postalCode": "35061",
+    "website": "https://www.tesla.com",
+    "tags": [
+      "nisi sint commodo amet",
+      "consequat"
+    ],
+    "dateOfBirth": "1990-09-25T00:00:00.000Z",
+    "dateAdded": "2021-07-02T05:18:26.704Z",
+    "dateUpdated": "2021-07-02T05:18:26.704Z",
+    "attachments": "string",
+    "ssn": "string",
+    "keyword": "test",
+    "firstNameLowerCase": "rubika",
+    "fullNameLowerCase": "rubika deo",
+    "lastNameLowerCase": "deo",
+    "lastActivity": "2021-07-16T11:39:30.564Z",
+    "customFields": [
+      {
+        "id": "MgobCB14YMVKuE4Ka8p1",
+        "value": "name"
+      }
+    ],
+    "businessId": "641c094001436dbc2081e642",
+    "attributionSource": {
+      "url": "Trigger Link",
+      "campaign": "string",
+      "utmSource": "string",
+      "utmMedium": "string",
+      "utmContent": "string",
+      "referrer": "https: //www.google.com",
+      "campaignId": "string",
+      "fbclid": "string",
+      "gclid": "CjOKCQjwnNyUBhCZARISAI9AYIFtNnIcWcYGIOQINz_ZoFI5SSLRRugSoPZoiEu27IZBY£1-MAIWmEaAo2VEALW_WCB",
+      "msclikid": "string",
+      "dclid": "string",
+      "fbc": "string",
+      "fbp": "fb. 1.1674748390986.1171287961",
+      "fbEventId": "Mozilla/5.0",
+      "userAgent": "Mozilla/5.0",
+      "ip": "58.111.106.198",
+      "medium": "survey",
+      "mediumId": "FglfHAn30PRwsZVyQlKp"
+    },
+    "lastAttributionSource": {
+      "url": "Trigger Link",
+      "campaign": "string",
+      "utmSource": "string",
+      "utmMedium": "string",
+      "utmContent": "string",
+      "referrer": "https: //www.google.com",
+      "campaignId": "string",
+      "fbclid": "string",
+      "gclid": "CjOKCQjwnNyUBhCZARISAI9AYIFtNnIcWcYGIOQINz_ZoFI5SSLRRugSoPZoiEu27IZBY£1-MAIWmEaAo2VEALW_WCB",
+      "msclikid": "string",
+      "dclid": "string",
+      "fbc": "string",
+      "fbp": "fb. 1.1674748390986.1171287961",
+      "fbEventId": "Mozilla/5.0",
+      "userAgent": "Mozilla/5.0",
+      "ip": "58.111.106.198",
+      "medium": "survey",
+      "mediumId": "FglfHAn30PRwsZVyQlKp"
+    },
+    "visitorId": "ve9EPM428h8vShlRW1KT"
+  }
+}

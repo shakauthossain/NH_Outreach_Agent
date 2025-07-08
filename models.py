@@ -7,7 +7,7 @@ class Lead(BaseModel):
     last_name: Optional[str]
     email: str
     title: Optional[str] = None
-    company: str
+    company: Optional[str]
     website_url: Optional[str]
     linkedin_url: Optional[str]
     website_speed_web: Optional[int]

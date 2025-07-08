@@ -12,12 +12,6 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# 👇 If your "designation" or "website_url" are custom fields, add their API keys here
-CUSTOM_FIELDS_MAP = {
-    "designation": "designation",       # change if your actual custom field ID is different
-    "website_url": "website_url"        # same here
-}
-
 def extract_custom_field(contact, field_key):
     """Get a custom field value by field key"""
     custom_fields = contact.get("customField", {})
@@ -52,12 +46,12 @@ def get_all_contacts():
 
         last_id = contacts[-1]["id"]
         if last_id in seen_ids:
-            print("⚠️ Duplicate last ID detected — stopping to avoid infinite loop.")
+            print("Duplicate last ID detected — stopping to avoid infinite loop.")
             break
 
         seen_ids.add(last_id)
         all_contacts.extend(contacts)
-        print(f"✅ Fetched {len(contacts)} contacts (Total: {len(all_contacts)})")
+        print(f"Fetched {len(contacts)} contacts (Total: {len(all_contacts)})")
 
         start_after_id = last_id
         time.sleep(0.5)
@@ -75,13 +69,13 @@ def save_contacts_to_csv(contacts, filename="ghl_leads.csv"):
             writer.writerow({
                 "first_name": c.get("firstName", ""),
                 "last_name": c.get("lastName", ""),
-                "designation": extract_custom_field(c, CUSTOM_FIELDS_MAP["designation"]),
+                "designation": c.get("designation", ""),
                 "company_name": c.get("companyName", ""),
                 "email": c.get("email", ""),
                 "website_url": c.get("website", ""),
             })
 
-    print(f"\n📁 Saved {len(contacts)} contacts to {filename}")
+    print(f"\nSaved {len(contacts)} contacts to {filename}")
 
 
 # Run

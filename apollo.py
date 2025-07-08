@@ -3,6 +3,9 @@ import requests
 import time
 from dotenv import load_dotenv
 from typing import List
+
+from fastapi import FastAPI
+
 from models import Lead
 from database import SessionLocal, LeadDB
 from pagespeed import test_all_unspeeded_leads, refresh_speed_for_lead
@@ -13,6 +16,23 @@ API_KEY = os.getenv("APOLLO_API_KEY")
 EnrichAPI_KEY = os.getenv("EnrichAPOLLO_API_KEY")
 GoHighLevel_key = os.getenv("GOHIGHLEVEL_KEY")
 Location_ID = os.getenv("GOHIGHLEVEL_LOCATION_ID")
+
+app = FastAPI()
+
+@app.get("/import/apollo", response_model=List[Lead])
+def import_apollo_leads(
+    industry: str = None,
+    functions: str = None,
+    seniority: str = None,
+    per_page: int = 10
+):
+    return fetch_apollo_leads(
+        industry=industry,
+        functions=functions,
+        seniority=seniority,
+        desired_count=per_page,
+        per_page=per_page
+    )
 
 def get_person_details(person_id: str) -> dict:
     url = f"https://api.apollo.io/v1/people/match?id={person_id}"
@@ -152,3 +172,33 @@ def fetch_apollo_leads(
     db.close()
     print(f"Final count: {len(leads)} leads added.")
     return leads
+
+
+def enrich_lead_with_apollo(email: str) -> dict:
+    url = "https://api.apollo.io/v1/mixed_people/match"
+    headers = {
+        "Cache-Control": "no-cache",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "api_key": os.getenv("APOLLO_API_KEY"),
+        "email": email
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code == 429:
+            print(f"Rate limit hit for {email}, skipping.")
+            return {}
+        response.raise_for_status()
+
+        person = response.json().get("person", {})
+        return {
+            "company": person.get("organization", {}).get("name", ""),
+            "title": person.get("title", ""),
+            "linkedin_url": person.get("linkedin_url", "")
+        }
+
+    except Exception as e:
+        print(f"Error enriching {email}: {str(e)}")
+        return {}

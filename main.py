@@ -4,9 +4,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
 from typing import List
-import pandas as pd
-import time
-import os
 
 from auth.routes import router as auth_router
 from apollo import fetch_apollo_leads, get_person_details
@@ -53,28 +50,15 @@ def test_pagespeed_metrics(url: str):
 
 @app.get("/")
 def root():
-    return {"message": "NH Outreach Agent API is running"}
+    return {"message": "NH Outreach Agent API is up and running"}
 
-@app.get("/import/apollo", response_model=List[Lead])
-def import_apollo_leads(
-    industry: str = None,
-    functions: str = None,
-    seniority: str = None,
-    per_page: int = 10
-):
-    return fetch_apollo_leads(
-        industry=industry,
-        functions=functions,
-        seniority=seniority,
-        desired_count=per_page,
-        per_page=per_page
-    )
-
-@app.get("/leads", response_model=List[Lead])
-def get_saved_leads(skip: int = 0, limit: int = 100):
+@app.get("/leads", response_model=list[Lead])
+def get_saved_leads(skip: int = 0, limit: int = 10):
     db = SessionLocal()
     try:
-        db_leads = db.query(LeadDB)\
+        # total = db.query(LeadDB).count()
+        db_leads = db.query(LeadDB) \
+            .filter(LeadDB.email != None, LeadDB.website_url != None) \
             .order_by(LeadDB.id)\
             .offset(skip)\
             .limit(limit)\
@@ -98,7 +82,7 @@ def get_saved_leads(skip: int = 0, limit: int = 100):
                 final_email=l.final_email,
                 pagespeed_diagnostics=l.pagespeed_diagnostics,
                 pagespeed_metrics_mobile = l.pagespeed_metrics_mobile,
-               pagespeed_metrics_desktop = l.pagespeed_metrics_desktop
+                pagespeed_metrics_desktop = l.pagespeed_metrics_desktop
             )
             for l in db_leads
         ]

@@ -7,69 +7,11 @@ from sqlalchemy.orm import Session
 from models import Lead
 from database import SessionLocal, LeadDB
 
-# Load .env values
 load_dotenv()
 
 GoHighLevel_key = os.getenv("GOHIGHLEVEL_KEY")
 Location_ID = os.getenv("GOHIGHLEVEL_LOCATION_ID")
-Apollo_API_Key = os.getenv("EnrichAPOLLO_API_KEY")
 
-# Step 1: Get person_id from email
-def find_person_id_by_email(email: str) -> str:
-    url = "https://api.apollo.io/v1/people/match"
-    headers = {
-        "X-Api-Key": Apollo_API_Key,
-        "Content-Type": "application/json"
-    }
-    payload = {"email": email}
-
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        if response.status_code == 404:
-            print(f"No match in Apollo for {email}")
-            return ""
-        response.raise_for_status()
-        return response.json().get("person", {}).get("id", "")
-    except Exception as e:
-        print(f"Error fetching person_id for {email}: {e}")
-        return ""
-
-# Step 2: Get enriched data from person_id
-def get_person_details(person_id: str) -> dict:
-    url = f"https://api.apollo.io/v1/people/match?id={person_id}"
-    headers = {
-        "X-Api-Key": Apollo_API_Key,
-        "Content-Type": "application/json"
-    }
-
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 429:
-            print(f"Rate limit hit for {person_id}, skipping.")
-            return {}
-        response.raise_for_status()
-        return response.json().get("person", {})
-    except Exception as e:
-        print(f"Error enriching person_id {person_id}: {e}")
-        return {}
-
-# Step 3: Combine both to enrich by email
-def enrich_lead_with_apollo(email: str) -> dict:
-    person_id = find_person_id_by_email(email)
-    if not person_id:
-        return {}
-
-    person = get_person_details(person_id)
-    if not person:
-        return {}
-
-    return {
-        "company": person.get("organization", {}).get("name", ""),
-        "title": person.get("title", ""),
-        "linkedin_url": person.get("linkedin_url", "")
-    }
-
-# Step 4: Fetch GHL leads and enrich
 def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List[Lead]:
     url = "https://services.leadconnectorhq.com/contacts/"
     headers = {
@@ -131,12 +73,6 @@ def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List
                 print(f"Skipping duplicate: {first_name} {last_name}")
                 continue
 
-            # Apollo enrichment
-            enriched = enrich_lead_with_apollo(email)
-            company = enriched.get("company", company)
-            title = enriched.get("title", title)
-            linkedin_url = enriched.get("linkedin_url", "")
-
             # Save to database
             lead_db = LeadDB(
                 first_name=first_name,
@@ -162,7 +98,7 @@ def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List
                 linkedin_url=linkedin_url,
                 website_speed_web=None,
                 website_speed_mobile=None,
-                screenshot_url=None
+                screenshot_url = None
             ))
             inserted += 1
             print(f"Added: {first_name} {last_name} ({email})")
@@ -177,3 +113,5 @@ def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List
     db.close()
     print(f"Final count: {inserted} leads added.")
     return leads
+
+

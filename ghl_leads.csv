@@ -1,4 +1,7 @@
 first_name,last_name,designation,company_name,email,website_url
+dummy,test,,Google,testing@mail.com,google.com
+dummy,dummy,,Notionhive,dummy@mail.com,notionhive.com
+daniel,ahmed,,ETH Zurich,dahmed@ethz.ch,
 folajimi,daodu,,Vault Hill,,
 abdulaziz,bin mugayel,,AILA,abdulazizafm@hotmail.com,
 nick,archer,,Savvy Games Group,n_j_archer@hotmail.com,
@@ -96,6 +99,3 @@ aritri,,,,nowshin5585@concordgroupbd.com,
 walid,(cnj) shaari,,Amazon Web Services (AWS),walid.shaari@gmail.com,
 zak,o'neill,,Red Hat,zoneill@redhat.com,
 nicolas,david,,Amazon Web Services (AWS),nicolas.david@anamor.ph,
-osama,ali,,Alpha Investment Company,me@osamaali.co,
-abdulaziz,alghamdi,,Lucky7 Studios,abdalaziz.alghamdi@gmail.com,
-muhammad,azam roomi,,Prince Mohammad Bin Salman College of Business & Entrepreneurship - MBSC,roomima@gmail.com,
