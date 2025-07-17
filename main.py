@@ -13,6 +13,7 @@ from pagespeed import test_all_unspeeded_leads, refresh_speed_for_lead
 from mail_gen import generate_email_from_lead, send_email_to_lead
 from pagespeed import get_pagespeed_score_and_screenshot
 from test1 import fetch_gohighlevel_leads
+from salesrobot import router as salesrobot_router
 
 app = FastAPI()
 
@@ -36,22 +37,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         },
     )
 
-
-@app.get("/test-pagespeed")
-def test_pagespeed_metrics(url: str):
-    scores, screenshot, diagnostics, metrics = get_pagespeed_score_and_screenshot(url, "mobile")
-
-    return {
-        "scores": scores,
-        "screenshot_path": screenshot,
-        "diagnostics_keys": list(diagnostics.keys()) if diagnostics else [],
-        "metrics": metrics
-    }
-
 @app.get("/")
 def root():
     return {"message": "NH Outreach Agent API is up and running"}
 
+app.include_router(salesrobot_router)
 @app.get("/leads", response_model=list[Lead])
 def get_saved_leads(skip: int = 0, limit: int = 10):
     db = SessionLocal()
@@ -150,6 +140,17 @@ def refresh_one_speed(lead_id: int):
     if web is None and mob is None:
         return {"error": "Speed test failed or lead not found"}
     return {"message": f"Updated: W-{web}, M-{mob}"}
+
+@app.get("/test-pagespeed")
+def test_pagespeed_metrics(url: str):
+    scores, screenshot, diagnostics, metrics = get_pagespeed_score_and_screenshot(url, "mobile")
+
+    return {
+        "scores": scores,
+        "screenshot_path": screenshot,
+        "diagnostics_keys": list(diagnostics.keys()) if diagnostics else [],
+        "metrics": metrics
+    }
 
 @app.post("/generate-mail/{lead_id}")
 def generate_mail(lead_id: int):

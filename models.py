@@ -22,6 +22,7 @@ class Lead(BaseModel):
     best_practices_score: Optional[int] = None
     pagespeed_metrics_mobile: Optional[Dict[str, Any]] = None
     pagespeed_metrics_desktop: Optional[Dict[str, Any]] = None
+    sent_to_salesrobot: Optional[bool] = False
 
     class Config:
         orm_mode = True
