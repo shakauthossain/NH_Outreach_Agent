@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+from email.mime.text import MIMEText
+import smtplib
 
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
@@ -12,11 +12,16 @@ from database import SessionLocal, LeadDB
 
 load_dotenv()
 Groq_API=os.getenv("GROQ_API_KEY")
+MAIL_UN=os.getenv("MAIL_USERNAME")
+MAIL_PASS=os.getenv("MAIL_PASSWORD")
 MAIL_SENDER=os.getenv("MAIL_SENDER")
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+mode = os.getenv("MAILTRAP_MODE")
+base_domain = os.getenv("BASE_TRACKING_DOMAIN")
 
+smtp_host = os.getenv("MAILTRAP_SANDBOX_HOST") if mode == "sandbox" else os.getenv("MAILTRAP_PROD_HOST")
+smtp_port = int(os.getenv("MAILTRAP_SANDBOX_PORT")) if mode == "sandbox" else int(os.getenv("MAILTRAP_PROD_PORT"))
 
-def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
+def generate_email_from_lead(lead_id: int) -> str:
     db = SessionLocal()
     lead = db.query(LeadDB).filter(LeadDB.id == lead_id).first()
 
@@ -33,12 +38,17 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
     - Desktop PageSpeed Score: {desktop_score}
     - Mobile PageSpeed Score: {mobile_score}
     - Screenshot Link: {screenshot_url}
-
+    
     This email should:
-    - Start with a subject line formatted like: Subject: <...>
-    - Then write the actual email body only (no preamble)
-    - Include a link to the screenshot and PageSpeed scores
-    - Be personalized and concise
+    - Address the lead by name and reference their job role
+    - Highlight their website's low PageSpeed score (mention both desktop and mobile)
+    - Reference real-world impact of slow websites (e.g., "a 1s delay can drop conversions by X%")
+    - Mention that a performance audit screenshot is available (use {screenshot_url})
+    - Offer a quick, no-pressure consultation to improve performance
+    - Keep the tone confident, friendly, and brief
+    - Include a clear call-to-action to book a short call
+    
+    Make it personalized, relevant, and focused on solving their problem.
     """
 
     prompt = PromptTemplate(
@@ -47,13 +57,14 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
     )
 
     llm = ChatGroq(
-        model_name="llama-3.3-70b-versatile",
+        model_name="llama-3.3-70b-versatile",  # make sure this is the correct model name you intend to use
         temperature=0.7,
         groq_api_key=Groq_API
     )
 
     chain = prompt | llm | StrOutputParser()
 
+    # Make sure these keys match all placeholder names in the prompt
     variables = {
         "first_name": lead.first_name,
         "title": lead.title or "",
@@ -64,29 +75,15 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
         "screenshot_url": lead.screenshot_url or "N/A"
     }
 
-    result = chain.invoke(variables).strip()
-
-    # Extract subject and body
-    subject_line = ""
-    body = result
-
-    if "Subject:" in result:
-        lines = result.splitlines()
-        subject_line = next(
-            (line.replace("Subject:", "").strip() for line in lines if line.lower().startswith("subject:")), "")
-        body = "\n".join(line for line in lines if
-                         not line.lower().startswith("subject:") and not line.strip().lower().startswith("here's"))
-
-    # Append standard sign-off
-    body = body.strip() + "\n\nBest regards,\nNotionhive Tech Team"
-
-    # Save to DB
-    lead.generated_email = body
-    lead.final_email = body
+    email = chain.invoke(variables)
+    if mode != "sandbox":
+        pixel = f'<img src="{base_domain}/tracking/open/{lead.id}" width="1" height="1" style="display:none;">'
+        email += f"\n\n{pixel}"
+    lead.generated_email = email
+    lead.final_email = email
     db.commit()
     db.close()
-
-    return subject_line, body
+    return email.strip()
 
 
 def send_email_to_lead(lead_id: int, email_body: str) -> None:
@@ -100,27 +97,23 @@ def send_email_to_lead(lead_id: int, email_body: str) -> None:
     # Save the edited final email
     lead.final_email = email_body
 
-    # Format as HTML
+    # Prepare email message
     html_body = email_body.replace('\n', '<br>')
-    subject = f"Website performance improvements for {lead.company}"
-
-    message = Mail(
-        from_email=MAIL_SENDER,
-        to_emails=lead.email,
-        subject=subject,
-        html_content=f"<html><body><p>{html_body}</p></body></html>"
-    )
+    msg = MIMEText(f"<html><body><p>{html_body}</p></body></html>", "html")
+    msg["Subject"] = f"Website performance improvements for {lead.company}"
+    msg["From"] = MAIL_SENDER
+    msg["To"] = lead.email
 
     try:
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        response = sg.send(message)
-        if response.status_code not in [200, 202]:
-            raise RuntimeError(f"SendGrid error: {response.status_code} - {response.body}")
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(MAIL_UN, MAIL_PASS)
+            server.send_message(msg)
     except Exception as e:
         db.close()
-        raise RuntimeError(f"SendGrid mail sending failed: {e}")
+        raise RuntimeError(f"Mail sending failed: {e}")
 
-    # Mark as sent
+    # Mark as sent and commit
     lead.mail_sent = True
     if email_body.strip() != (lead.generated_email or "").strip():
         print("Email was edited before sending.")
