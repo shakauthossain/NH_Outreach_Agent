@@ -171,6 +171,7 @@ def save_mail(lead_id: int, body: MailBody):
         return {"error": "Lead not found"}
 
     lead.final_email = body.email_body
+    lead.subject = lead.email_subject or f"Website performance improvements for {lead.company}"
     db.commit()
     db.close()
     return {"message": "Draft saved successfully."}

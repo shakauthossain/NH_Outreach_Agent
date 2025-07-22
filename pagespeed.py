@@ -76,14 +76,15 @@ def get_pagespeed_score_and_screenshot(url: str, strategy: str) -> tuple[dict | 
             with open(filepath, "wb") as f:
                 f.write(img_data)
 
-            screenshot_path = f"/{filepath}"
+            # ✅ Generate a public URL instead of local file path
+            HF_SPACE_URL = "https://notionhive-ai-nh-outreach-agent.hf.space"
+            screenshot_path = f"{HF_SPACE_URL}/static/{domain}/{filename}"
 
         return scores, screenshot_path, diagnostics_data, metrics_data
 
     except Exception as e:
         print(f"Error testing {url} ({strategy}): {e}")
         return None, None, None, None
-
 
 def test_all_unspeeded_leads():
     db = SessionLocal()

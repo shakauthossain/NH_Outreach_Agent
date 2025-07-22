@@ -15,6 +15,7 @@ class Lead(BaseModel):
     screenshot_url: Optional[str]
     mail_sent: Optional[bool] = False
     generated_email: Optional[str] = None
+    email_subject: Optional[str] = None
     final_email: Optional[str] = None
     pagespeed_diagnostics: Optional[Dict[str, Any]] = None
     accessibility_score: Optional[int] = None

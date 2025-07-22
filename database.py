@@ -28,6 +28,7 @@ class LeadDB(Base):
     screenshot_url = Column(String, nullable=True)
     mail_sent = Column(Boolean, default=False)
     generated_email = Column(Text, nullable=True)
+    email_subject = Column(String, nullable=True)
     final_email = Column(Text, nullable=True)
     pagespeed_diagnostics = Column(JSON, nullable=True)
     accessibility_score = Column(Integer, nullable=True)

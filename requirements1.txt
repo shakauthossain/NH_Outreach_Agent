@@ -10,8 +10,3 @@ python-dotenv
 Requests
 SQLAlchemy
 sendgrid
-python-jose
-psycopg2-binary
-pydantic[email]
-passlib
-python-multipart

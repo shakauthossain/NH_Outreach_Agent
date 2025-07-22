@@ -102,7 +102,7 @@
   </table>
   <div id="pagination" style="margin-top: 20px; text-align: center;"></div>
   <script>
-    const BASE_URL = "http://localhost:8000";
+    const BASE_URL = "https://notionhive-ai-nh-outreach-agent.hf.space";
     async function loadLeads() {
       document.getElementById("tableBody").innerHTML = "";
       const res = await fetch(`${BASE_URL}/leads`);
@@ -125,7 +125,7 @@
           <td><a href="${lead.linkedin_url || '#'}" target="_blank">${lead.linkedin_url ? 'LinkedIn' : 'N/A'}</a></td>
           <td class="${isGood ? 'score-green' : 'score-red'}">${webSpeed} / ${mobSpeed}<br><button id="refreshBtn-${lead.id}" onclick="refreshSpeed(${lead.id})">Refresh Speed</button>
           <td>${lead.screenshot_url ? `<a href="${lead.screenshot_url}" target="_blank">View</a>` : "N/A"}</td>
-          <td><a href="http://localhost:8000/mail/${lead.id}" target="_blank">Open Mail Panel</a></td>
+          <td><a href="https://notionhive-ai-nh-outreach-agent.hf.space/mail/${lead.id}" target="_blank">Open Mail Panel</a></td>
           <td class="${mailClass}">${mailStatus}</td>
         `;
         document.getElementById("tableBody").appendChild(row);
@@ -234,7 +234,7 @@
           <td><a href="${lead.linkedin_url || '#'}" target="_blank">${lead.linkedin_url ? 'LinkedIn' : 'N/A'}</a></td>
           <td class="${isGood ? 'score-green' : 'score-red'}">${webSpeed} / ${mobSpeed}<br><button id="refreshBtn-${lead.id}" onclick="refreshSpeed(${lead.id})">Refresh Speed</button></td>
           <td>${lead.screenshot_url ? `<a href="${lead.screenshot_url}" target="_blank">View</a>` : "N/A"}</td>
-          <td><a href="http://localhost:8000/mail/${lead.id}" target="_blank">Open Mail Panel</a></td>
+          <td><a href="https://notionhive-ai-nh-outreach-agent.hf.space/mail/${lead.id}" target="_blank">Open Mail Panel</a></td>
           <td class="${mailClass}">${mailStatus}</td>
         `;
         document.getElementById("tableBody").appendChild(row);
