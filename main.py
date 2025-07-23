@@ -10,10 +10,11 @@ from apollo import fetch_apollo_leads, get_person_details
 from models import Lead, MailBody
 from database import SessionLocal, LeadDB
 from pagespeed import test_all_unspeeded_leads, refresh_speed_for_lead
-from mail_gen import generate_email_from_lead, send_email_to_lead
+from mail_gen2 import generate_email_from_lead, send_email_to_lead
 from pagespeed import get_pagespeed_score_and_screenshot
-from test1 import fetch_gohighlevel_leads
+from GoHighLevel import fetch_gohighlevel_leads
 from salesrobot import router as salesrobot_router
+from ghl_inbox import router as inbox_router
 
 app = FastAPI()
 
@@ -24,8 +25,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.include_router(auth_router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -42,6 +41,9 @@ def root():
     return {"message": "NH Outreach Agent API is up and running"}
 
 app.include_router(salesrobot_router)
+app.include_router(auth_router)
+app.include_router(inbox_router)
+
 @app.get("/leads", response_model=list[Lead])
 def get_saved_leads(skip: int = 0, limit: int = 10):
     db = SessionLocal()

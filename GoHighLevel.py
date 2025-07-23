@@ -1,3 +1,4 @@
+
 import os
 import requests
 import time
@@ -51,6 +52,7 @@ def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List
             break
 
         for contact in contacts:
+            ghl_contact_id = contact.get("id")
             first_name = contact.get("firstName", "")
             last_name = contact.get("lastName", "")
             email = contact.get("email", "")
@@ -70,10 +72,19 @@ def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List
             ).first()
 
             if existing_lead:
-                print(f"Skipping duplicate: {first_name} {last_name}")
+                if existing_lead.ghl_contact_id != ghl_contact_id:
+                    print(f"📝 Updating GHL ID for {email}: {existing_lead.ghl_contact_id} → {ghl_contact_id}")
+                    existing_lead.ghl_contact_id = ghl_contact_id
+                    db.flush()
+                    db.commit()
+
+                    # Verify in DB
+                    verified = db.query(LeadDB).filter(LeadDB.id == existing_lead.id).first()
+                    print(f"✅ Verified saved: {verified.email} → GHL ID: {verified.ghl_contact_id}")
+                else:
+                    print(f"⏭ No update needed for {email}")
                 continue
 
-            # Save to database
             lead_db = LeadDB(
                 first_name=first_name,
                 last_name=last_name,
@@ -81,12 +92,12 @@ def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List
                 title=title,
                 company=company,
                 website_url=website_url,
-                linkedin_url=linkedin_url
+                linkedin_url=linkedin_url,
+                ghl_contact_id=ghl_contact_id
             )
             db.add(lead_db)
             db.commit()
 
-            # Add to result list
             leads.append(Lead(
                 id=lead_db.id,
                 first_name=first_name,
@@ -98,10 +109,11 @@ def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List
                 linkedin_url=linkedin_url,
                 website_speed_web=None,
                 website_speed_mobile=None,
-                screenshot_url = None
+                screenshot_url=None,
+                ghl_contact_id=ghl_contact_id
             ))
+            print(f"Added: {first_name} {last_name} ({email}) | GHL ID: {ghl_contact_id}")
             inserted += 1
-            print(f"Added: {first_name} {last_name} ({email})")
 
             if inserted >= desired_count:
                 break
@@ -110,8 +122,9 @@ def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List
         attempts += 1
         time.sleep(1)
 
+    print("📦 Final DB Snapshot:")
+    for lead in db.query(LeadDB).order_by(LeadDB.id.desc()).limit(5):
+        print(f"{lead.id}: {lead.email} | GHL ID: {lead.ghl_contact_id}")
+
     db.close()
-    print(f"Final count: {inserted} leads added.")
     return leads
-
-
