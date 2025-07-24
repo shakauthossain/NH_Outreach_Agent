@@ -175,23 +175,32 @@ def fetch_apollo_leads(
 
 
 def enrich_lead_with_apollo(email: str) -> dict:
-    url = "https://api.apollo.io/v1/mixed_people/match"
+    url = "https://api.apollo.io/api/v1/people/match"
+    api_key = os.getenv("APOLLO_API_KEY")
+
     headers = {
+        "x-api-key": api_key,
         "Cache-Control": "no-cache",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Accept": "application/json"
     }
-    payload = {
-        "api_key": os.getenv("APOLLO_API_KEY"),
-        "email": email
+
+    params = {
+        "email": email,
+        "reveal_personal_emails": False,
+        "reveal_phone_number": False
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, params=params, json={})
         if response.status_code == 429:
             print(f"Rate limit hit for {email}, skipping.")
             return {}
-        response.raise_for_status()
+        if response.status_code == 404:
+            print(f"No match found for {email}")
+            return {}
 
+        response.raise_for_status()
         person = response.json().get("person", {})
         return {
             "company": person.get("organization", {}).get("name", ""),

@@ -1,4 +1,3 @@
-
 import os
 import requests
 import time
@@ -7,6 +6,7 @@ from typing import List
 from sqlalchemy.orm import Session
 from models import Lead
 from database import SessionLocal, LeadDB
+from apollo import enrich_lead_with_apollo
 
 load_dotenv()
 
@@ -73,17 +73,22 @@ def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List
 
             if existing_lead:
                 if existing_lead.ghl_contact_id != ghl_contact_id:
-                    print(f"📝 Updating GHL ID for {email}: {existing_lead.ghl_contact_id} → {ghl_contact_id}")
+                    print(f"Updating GHL ID for {email}: {existing_lead.ghl_contact_id} → {ghl_contact_id}")
                     existing_lead.ghl_contact_id = ghl_contact_id
                     db.flush()
                     db.commit()
 
                     # Verify in DB
                     verified = db.query(LeadDB).filter(LeadDB.id == existing_lead.id).first()
-                    print(f"✅ Verified saved: {verified.email} → GHL ID: {verified.ghl_contact_id}")
+                    print(f"Verified saved: {verified.email} → GHL ID: {verified.ghl_contact_id}")
                 else:
-                    print(f"⏭ No update needed for {email}")
+                    print(f"No update needed for {email}")
                 continue
+
+            enriched = enrich_lead_with_apollo(email)
+            company = enriched.get("company", company)
+            title = enriched.get("title", title)
+            linkedin_url = enriched.get("linkedin_url", "")
 
             lead_db = LeadDB(
                 first_name=first_name,
@@ -122,7 +127,7 @@ def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List
         attempts += 1
         time.sleep(1)
 
-    print("📦 Final DB Snapshot:")
+    print("Final DB Snapshot:")
     for lead in db.query(LeadDB).order_by(LeadDB.id.desc()).limit(5):
         print(f"{lead.id}: {lead.email} | GHL ID: {lead.ghl_contact_id}")
 

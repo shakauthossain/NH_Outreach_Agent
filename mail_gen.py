@@ -1,8 +1,8 @@
 import os
 import re
+import time
+import httpx
 from dotenv import load_dotenv
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
 
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
@@ -16,11 +16,11 @@ from contextlib import contextmanager
 load_dotenv()
 Groq_API = os.getenv("GROQ_API_KEY")
 MAIL_SENDER = os.getenv("MAIL_SENDER")
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+GHL_API_KEY = os.getenv("GOHIGHLEVEL_KEY")
 ENV = os.getenv("ENV", "prod")
 TEST_EMAIL = os.getenv("TEST_EMAIL", None)
 
-# Context manager for DB session
+
 @contextmanager
 def get_db():
     db = SessionLocal()
@@ -36,9 +36,8 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
         if not lead:
             raise ValueError("Lead not found")
 
-        # Email generation prompt
-        template = """
-        Write a cold outbound sales email for the following lead:
+        template = '''
+        Write an awesome cold outbound sales email for the following lead:
 
         - First Name: {first_name}
         - Job Title: {title}
@@ -57,9 +56,10 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
         - Keep the tone confident, friendly, and brief
         - Include a clear call-to-action to book a short call
         - Do not add regards or ending of the mail
-        
+        - Make it personalized, relevant, and focused on solving their problem.
+
         Make it personalized, relevant, and focused on solving their problem.
-        """
+        '''
 
         prompt = PromptTemplate(
             input_variables=[
@@ -88,20 +88,14 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
         }
 
         result = chain.invoke(variables).strip()
-
-        # Extract subject line
-        subject_line = ""
-        body = result
+        print(result)
 
         match = re.search(r"Subject:\s*(.*)", result, re.IGNORECASE)
-        if match:
-            subject_line = match.group(1).strip()
-            body = re.sub(r"Subject:.*\n?", "", result, flags=re.IGNORECASE).strip()
-
-        # Add sign-off
+        subject_line = match.group(1).strip() if match else ""
+        body = re.sub(r"Subject:.*\n?", "", result, flags=re.IGNORECASE).strip()
+        body = result
         body = body.strip() + "\n\nBest regards,\nNotionhive Tech Team"
 
-        # Save to DB
         lead.generated_email = body
         lead.final_email = body
         lead.email_subject = subject_line
@@ -113,43 +107,76 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
 def send_email_to_lead(lead_id: int, email_body: str) -> None:
     with get_db() as db:
         lead = db.query(LeadDB).filter(LeadDB.id == lead_id).first()
-        if not lead or not lead.email:
-            raise ValueError("Lead not found or email missing")
+        if not lead:
+            raise ValueError("Lead not found")
+        if not lead.email:
+            raise ValueError("Lead has no email")
+        if not lead.ghl_contact_id:
+            raise ValueError("GHL contact ID not set for this lead")
 
-        # Use test email if in dev
         recipient_email = TEST_EMAIL if ENV == "dev" and TEST_EMAIL else lead.email
 
-        # Save edited email
         lead.final_email = email_body
-
-        # Prepare email
-        html_body = email_body.replace('\n', '<br>')
         subject = lead.email_subject or f"Website performance improvements for {lead.company}"
 
-        message = Mail(
-            from_email=MAIL_SENDER,
-            to_emails=recipient_email,
-            subject=subject,
-            html_content=f"<html><body><p>{html_body}</p></body></html>"
-        )
+        send_url = "https://services.leadconnectorhq.com/conversations/messages"
 
-        # Send email
+        payload = {
+            "type": "Email",
+            "contactId": lead.ghl_contact_id,
+            "emailFrom": MAIL_SENDER,
+            "emailTo": recipient_email,
+            "subject": subject,
+            "html": f"<p>{email_body.replace(chr(10), '<br>')}</p>",
+            "message": email_body,
+            "emailReplyMode": "reply"
+        }
+
+        headers = {
+            "Authorization": f"Bearer {GHL_API_KEY}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Version": "2021-04-15"
+        }
+
         try:
-            print(f"Sending email to {recipient_email}:\nSubject: {subject}\n---\n{email_body}\n---")
-            sg = SendGridAPIClient(SENDGRID_API_KEY)
-            response = sg.send(message)
+            print(f"Sending email to {recipient_email} via LeadConnector Conversations API...")
+            response = httpx.post(send_url, headers=headers, json=payload)
+            response.raise_for_status()
+            print("Email sent.")
 
-            if response.status_code not in [200, 202]:
-                raise RuntimeError(f"SendGrid error: {response.status_code} - {response.body.decode()}")
+            # Retry loop to get conversation ID
+            search_url = "https://services.leadconnectorhq.com/conversations/search"
+            search_params = {
+                "locationId": os.getenv("GOHIGHLEVEL_LOCATION_ID"),
+                "contactId": lead.ghl_contact_id
+            }
 
-            print(f"SendGrid Email sent. Status: {response.status_code}, Message ID: {response.headers.get('X-Message-Id')}")
+            conversation_id = None
+            for attempt in range(5):
+                search_resp = httpx.get(search_url, headers=headers, params=search_params)
+                print(search_params)
+                if search_resp.status_code == 200:
+                    print(f"Search result: {search_resp.json()}")
+                    data = search_resp.json()
+                    for convo in data.get("conversations", []):
+                        if convo.get("lastMessageType") == "TYPE_EMAIL":
+                            conversation_id = convo.get("id")
+                            break
+                    if conversation_id:
+                        print(f"Conversation ID found: {conversation_id}")
+                        # Optional: store to DB
+                        lead.conversation_id = conversation_id
+                        db.commit()
+                        break
+                print(f"Waiting for conversation (try {attempt + 1}/5)...")
+                time.sleep(1.5)
 
-        except Exception as e:
-            raise RuntimeError(f"SendGrid mail sending failed: {e}")
+            if not conversation_id:
+                print("Conversation ID not found after retries.")
 
-        # Mark as sent
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(f"GHL email send failed: {e.response.text}")
+
         lead.mail_sent = True
-        if email_body.strip() != (lead.generated_email or "").strip():
-            print("Email was edited before sending.")
-
         db.commit()

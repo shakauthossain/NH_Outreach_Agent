@@ -31,6 +31,7 @@ class LeadDB(Base):
     email_subject = Column(String, nullable=True)
     final_email = Column(Text, nullable=True)
     ghl_contact_id = Column(String, nullable=True)
+    conversation_id = Column(String, nullable=True)
     pagespeed_diagnostics = Column(JSON, nullable=True)
     accessibility_score = Column(Integer, nullable=True)
     seo_score = Column(Integer, nullable=True)

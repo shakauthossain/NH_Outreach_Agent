@@ -10,7 +10,7 @@ from apollo import fetch_apollo_leads, get_person_details
 from models import Lead, MailBody
 from database import SessionLocal, LeadDB
 from pagespeed import test_all_unspeeded_leads, refresh_speed_for_lead
-from mail_gen2 import generate_email_from_lead, send_email_to_lead
+from mail_gen import generate_email_from_lead, send_email_to_lead
 from pagespeed import get_pagespeed_score_and_screenshot
 from GoHighLevel import fetch_gohighlevel_leads
 from salesrobot import router as salesrobot_router

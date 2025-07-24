@@ -14,6 +14,7 @@ class Lead(BaseModel):
     website_speed_mobile: Optional[int]
     screenshot_url: Optional[str]
     ghl_contact_id: Optional[str] = None
+    conversation_id: Optional[str] = None
     mail_sent: Optional[bool] = False
     generated_email: Optional[str] = None
     email_subject: Optional[str] = None

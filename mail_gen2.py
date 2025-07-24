@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import httpx
 from dotenv import load_dotenv
 
@@ -35,7 +36,7 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
             raise ValueError("Lead not found")
 
         template = '''
-        Write a cold outbound sales email for the following lead:
+        Write an awesome cold outbound sales email for the following lead:
 
         - First Name: {first_name}
         - Job Title: {title}
@@ -54,6 +55,9 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
         - Keep the tone confident, friendly, and brief
         - Include a clear call-to-action to book a short call
         - Do not add regards or ending of the mail
+        - Make it personalized, relevant, and focused on solving their problem.
+        
+        Make it personalized, relevant, and focused on solving their problem.
         '''
 
         prompt = PromptTemplate(
@@ -83,11 +87,12 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
         }
 
         result = chain.invoke(variables).strip()
+        print(result)
 
         match = re.search(r"Subject:\s*(.*)", result, re.IGNORECASE)
         subject_line = match.group(1).strip() if match else ""
         body = re.sub(r"Subject:.*\n?", "", result, flags=re.IGNORECASE).strip()
-
+        body = result
         body = body.strip() + "\n\nBest regards,\nNotionhive Tech Team"
 
         lead.generated_email = body
@@ -96,7 +101,6 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
         db.commit()
 
         return subject_line, body
-
 
 def send_email_to_lead(lead_id: int, email_body: str) -> None:
     with get_db() as db:
@@ -134,12 +138,43 @@ def send_email_to_lead(lead_id: int, email_body: str) -> None:
         }
 
         try:
-            print(f"📤 Sending email to {recipient_email} via LeadConnector Conversations API...")
+            print(f"Sending email to {recipient_email} via LeadConnector Conversations API...")
             response = httpx.post(send_url, headers=headers, json=payload)
             response.raise_for_status()
-            print("✅ LeadConnector email sent successfully.")
+            print("Email sent.")
+
+            # Retry loop to get conversation ID
+            search_url = "https://services.leadconnectorhq.com/conversations/search"
+            search_params = {
+                "locationId": os.getenv("GOHIGHLEVEL_LOCATION_ID"),
+                "contactId": lead.ghl_contact_id
+            }
+
+            conversation_id = None
+            for attempt in range(5):
+                search_resp = httpx.get(search_url, headers=headers, params=search_params)
+                print(search_params)
+                if search_resp.status_code == 200:
+                    print(f"Search result: {search_resp.json()}")
+                    data = search_resp.json()
+                    for convo in data.get("conversations", []):
+                        if convo.get("lastMessageType") == "TYPE_EMAIL":
+                            conversation_id = convo.get("id")
+                            break
+                    if conversation_id:
+                        print(f"Conversation ID found: {conversation_id}")
+                        # Optional: store to DB
+                        lead.conversation_id = conversation_id
+                        db.commit()
+                        break
+                print(f"Waiting for conversation (try {attempt + 1}/5)...")
+                time.sleep(1.5)
+
+            if not conversation_id:
+                print("Conversation ID not found after retries.")
+
         except httpx.HTTPStatusError as e:
-            raise RuntimeError(f"❌ GHL email send failed: {e.response.text}")
+            raise RuntimeError(f"GHL email send failed: {e.response.text}")
 
         lead.mail_sent = True
         db.commit()
