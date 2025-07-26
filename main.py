@@ -56,30 +56,30 @@ def get_saved_leads(skip: int = 0, limit: int = 10):
             .limit(limit)\
             .all()
 
-        leads = [
-            Lead(
-                id=l.id,
-                first_name=l.first_name,
-                last_name=l.last_name,
-                email=l.email,
-                title=l.title,
-                company=l.company,
-                website_url=l.website_url,
-                linkedin_url=l.linkedin_url,
-                website_speed_web=l.website_speed_web,
-                website_speed_mobile=l.website_speed_mobile,
-                screenshot_url=l.screenshot_url,
-                mail_sent=l.mail_sent,
-                generated_email=l.generated_email,
-                final_email=l.final_email,
-                pagespeed_diagnostics=l.pagespeed_diagnostics,
-                pagespeed_metrics_mobile = l.pagespeed_metrics_mobile,
-                pagespeed_metrics_desktop = l.pagespeed_metrics_desktop
-            )
-            for l in db_leads
-        ]
-        db.close()
-        return leads
+        # leads = [
+        #     Lead(
+        #         id=l.id,
+        #         first_name=l.first_name,
+        #         last_name=l.last_name,
+        #         email=l.email,
+        #         title=l.title,
+        #         company=l.company,
+        #         website_url=l.website_url,
+        #         linkedin_url=l.linkedin_url,
+        #         website_speed_web=l.website_speed_web,
+        #         website_speed_mobile=l.website_speed_mobile,
+        #         screenshot_url=l.screenshot_url,
+        #         mail_sent=l.mail_sent,
+        #         generated_email=l.generated_email,
+        #         final_email=l.final_email,
+        #         pagespeed_diagnostics=l.pagespeed_diagnostics,
+        #         pagespeed_metrics_mobile = l.pagespeed_metrics_mobile,
+        #         pagespeed_metrics_desktop = l.pagespeed_metrics_desktop,
+        #     )
+        #     for l in db_leads
+        # ]
+        # db.close()
+        return db_leads
     except Exception as e:
         db.close()
         print(f"Error fetching leads: {e}")
