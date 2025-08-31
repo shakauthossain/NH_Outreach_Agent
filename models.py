@@ -29,6 +29,7 @@ class Lead(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 class MailBody(BaseModel):
     email_body: str

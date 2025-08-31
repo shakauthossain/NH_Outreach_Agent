@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 from typing import List, Optional
+from redis_cache import get_cached_conversation, cache_inbox, cache_conversation, get_cached_inbox
 
 GHL_API_BASE = "https://services.leadconnectorhq.com"
 GoHighLevel_key = os.getenv("GOHIGHLEVEL_KEY")
@@ -31,6 +32,15 @@ class RegenerateEmailResponse(BaseModel):
 
 @router.get("/inbox")
 async def get_inbox_conversations(limit: int = 20, startAfter: str = None):
+    # Build a unique cache key based on pagination params
+    cache_key = f"inbox:list:limit={limit}:startAfter={startAfter or 'none'}"
+
+    # Try to get from cache
+    cached = await get_cached_inbox(cache_key)
+    if cached:
+        return {"source": "cache", "inbox": cached}
+
+    # Fallback to GHL API
     url = f"{GHL_API_BASE}/conversations/?locationId={LOCATION_ID}&limit={limit}"
     if startAfter:
         url += f"&startAfter={startAfter}"
@@ -53,13 +63,20 @@ async def get_inbox_conversations(limit: int = 20, startAfter: str = None):
                         "last_updated": convo.get("updatedAt")
                     })
 
-            return {"inbox": email_conversations}
+            # Cache the result for 2 minutes (adjustable)
+            await cache_inbox(cache_key, email_conversations, ttl=120)
+
+            return {"source": "ghl", "inbox": email_conversations}
 
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
 
 @router.get("/{conversation_id}")
 async def get_conversation_messages(conversation_id: str):
+    cached = await get_cached_conversation(conversation_id)
+    if cached:
+        return {"conversation_id": conversation_id, "messages": cached}
+
     messages_url = f"{GHL_API_BASE}/conversations/{conversation_id}/messages"
 
     def purge_html(html: str) -> str:
@@ -82,9 +99,7 @@ async def get_conversation_messages(conversation_id: str):
                 detail_resp = await client.get(detail_url, headers=HEADERS)
                 detail_resp.raise_for_status()
 
-                # FIXED: message is nested under "message"
                 detail_response = detail_resp.json().get("message", {})
-
                 raw_body = detail_response.get("body", "")
                 clean_body = purge_html(raw_body)
 
@@ -96,9 +111,9 @@ async def get_conversation_messages(conversation_id: str):
                     "date": msg.get("dateAdded")
                 })
 
-            # Sort messages by date
+            # Sort by date and cache
             full_messages.sort(key=lambda x: x["date"])
-
+            await cache_conversation(conversation_id, full_messages, ttl=300)
             return {"conversation_id": conversation_id, "messages": full_messages}
 
     except httpx.HTTPStatusError as exc:

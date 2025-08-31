@@ -1,88 +1,96 @@
-import redis
-import json
 import os
+import json
+import redis.asyncio as redis
+from urllib.parse import urlparse
+from dotenv import load_dotenv
 
-# --- Redis Connection ---
+load_dotenv()
+
+# --- Redis Async Client Setup ---
+REDIS_URL = os.getenv("REDIS_URL")
+print("[Redis] RAW REDIS_URL:", REDIS_URL)  # Debug
+
+if not REDIS_URL:
+    raise RuntimeError("REDIS_URL is not set in environment")
+
+parsed = urlparse(REDIS_URL)
+
+if not all([parsed.hostname, parsed.port, parsed.password]):
+    raise RuntimeError("REDIS_URL is missing components. Check format: rediss://default:<token>@host:6379")
+
 redis_client = redis.Redis(
-    host=os.getenv("REDIS_HOST", "localhost"),
-    port=int(os.getenv("REDIS_PORT", 6379)),
-    db=0,
-    decode_responses=True  # strings not bytes
+    host=parsed.hostname,
+    port=int(parsed.port),
+    username=parsed.username,
+    password=parsed.password,
+    ssl=True,
+    decode_responses=True
 )
 
 # --- Base Utility Functions ---
 
-def set_cache(key: str, value: dict | list | str, ttl: int = None):
-    """Set a key in Redis with optional TTL (seconds)."""
+async def set_cache(key: str, value, ttl: int = None):
+    """Set a value in Redis with optional TTL (in seconds)."""
     try:
         serialized = json.dumps(value)
         if ttl:
-            redis_client.setex(key, ttl, serialized)
+            await redis_client.setex(key, ttl, serialized)
         else:
-            redis_client.set(key, serialized)
+            await redis_client.set(key, serialized)
     except Exception as e:
         print(f"[Redis] Error setting cache for {key}: {e}")
 
-def get_cache(key: str):
-    """Get a key from Redis and deserialize it."""
+async def get_cache(key: str):
+    """Retrieve and deserialize value from Redis."""
     try:
-        cached = redis_client.get(key)
+        cached = await redis_client.get(key)
         if cached:
             return json.loads(cached)
-        return None
     except Exception as e:
         print(f"[Redis] Error getting cache for {key}: {e}")
-        return None
+    return None
 
-def delete_cache(key: str):
-    """Delete a cache key."""
+async def delete_cache(key: str):
+    """Delete a cache entry."""
     try:
-        redis_client.delete(key)
+        await redis_client.delete(key)
     except Exception as e:
         print(f"[Redis] Error deleting cache for {key}: {e}")
 
-# --- Inbox Caching ---
+# --- Inbox (conversation list) Caching ---
 
-def cache_inbox(lead_id: str, messages: list, ttl: int = 300):
-    key = f"inbox:{lead_id}"
-    set_cache(key, messages, ttl)
+async def cache_inbox(key: str, inbox_data: list, ttl: int = 120):
+    await set_cache(key, inbox_data, ttl)
 
-def get_cached_inbox(lead_id: str):
-    return get_cache(f"inbox:{lead_id}")
+async def get_cached_inbox(key: str):
+    return await get_cache(key)
 
-def invalidate_inbox(lead_id: str):
-    delete_cache(f"inbox:{lead_id}")
+async def invalidate_inbox(key: str):
+    await delete_cache(key)
 
-# --- Contact Caching ---
+# --- Conversation Messages Caching ---
 
-def cache_contact(contact_id: str, data: dict, ttl: int = 1800):
-    key = f"contact:{contact_id}"
-    set_cache(key, data, ttl)
+async def cache_conversation(convo_id: str, messages: list, ttl: int = 300):
+    key = f"inbox:conversation:{convo_id}"
+    await set_cache(key, messages, ttl)
 
-def get_cached_contact(contact_id: str):
-    return get_cache(f"contact:{contact_id}")
+async def get_cached_conversation(convo_id: str):
+    return await get_cache(f"inbox:conversation:{convo_id}")
 
-# --- Campaign Caching ---
+async def invalidate_conversation(convo_id: str):
+    await delete_cache(f"inbox:conversation:{convo_id}")
 
-def cache_campaigns(data: list, ttl: int = 21600):  # 6 hours
-    set_cache("campaigns:list", data, ttl)
 
-def get_cached_campaigns():
-    return get_cache("campaigns:list")
+# --- Lead List Caching ---
 
-# --- Email Template Caching ---
+async def cache_lead_list(skip: int, limit: int, leads: list, ttl: int = 300):
+    key = f"leads:list:skip={skip}:limit={limit}"
+    await set_cache(key, leads, ttl)
 
-def cache_email_template(template_id: str, data: dict, ttl: int = 86400):  # 24 hours
-    key = f"template:email:{template_id}"
-    set_cache(key, data, ttl)
+async def get_cached_lead_list(skip: int, limit: int):
+    key = f"leads:list:skip={skip}:limit={limit}"
+    return await get_cache(key)
 
-def get_cached_email_template(template_id: str):
-    return get_cache(f"template:email:{template_id}")
-
-# --- GHL Auth Token Caching ---
-
-def cache_ghl_token(token: str, ttl: int = 900):  # 15 minutes
-    set_cache("ghl:access_token", token, ttl)
-
-def get_cached_ghl_token():
-    return get_cache("ghl:access_token")
+async def invalidate_lead_list(skip: int, limit: int):
+    key = f"leads:list:skip={skip}:limit={limit}"
+    await delete_cache(key)

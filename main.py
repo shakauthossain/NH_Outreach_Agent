@@ -1,9 +1,20 @@
-from fastapi import FastAPI, Query, UploadFile, File, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, Query, UploadFile, File, HTTPException, Request, Depends, Form, Response
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
-from typing import List
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy.inspection import inspect
+from sqlalchemy.orm import Session
+from typing import List, Dict, Any, Optional
+import csv
+from io import StringIO
+import os
+from urllib.parse import urlparse
+import re
+import json
+import datetime
+import io
 
 from auth.routes import router as auth_router
 from apollo import fetch_apollo_leads, get_person_details
@@ -15,6 +26,7 @@ from pagespeed import get_pagespeed_score_and_screenshot
 from GoHighLevel import fetch_gohighlevel_leads
 from salesrobot import router as salesrobot_router
 from ghl_inbox import router as inbox_router
+from redis_cache import get_cached_lead_list, cache_lead_list
 
 app = FastAPI()
 
@@ -26,6 +38,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+app.include_router(salesrobot_router)
+app.include_router(auth_router)
+app.include_router(inbox_router)
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
@@ -36,52 +55,71 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         },
     )
 
+ALLOWED_FIELDS = {
+    "first_name", "last_name", "email", "title",
+    "company", "website_url", "linkedin_url"
+}
+
+def normalize_url(raw: str | None) -> str | None:
+    """
+    Normalize a company domain/url to canonical https://host
+    - Adds https:// if missing
+    - Strips www., port, creds, and trailing slash
+    """
+    if not raw:
+        return None
+    s = raw.strip()
+    if not re.match(r"^[a-z][a-z0-9+\-.]*://", s.lower()):
+        s = "https://" + s
+    p = urlparse(s)
+    host = p.netloc or p.path
+    if "@" in host:
+        host = host.split("@", 1)[-1]
+    if ":" in host:
+        host = host.split(":", 1)[0]
+    if host.startswith("www."):
+        host = host[4:]
+    host = re.sub(r"[^a-z0-9\.\-]", "", host.lower())
+    return f"https://{host}".rstrip("/") if host else None
+
+UPLOAD_DIR = "uploaded_csvs"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 @app.get("/")
 def root():
     return {"message": "NH Outreach Agent API is up and running"}
 
-app.include_router(salesrobot_router)
-app.include_router(auth_router)
-app.include_router(inbox_router)
+
 
 @app.get("/leads", response_model=list[Lead])
-def get_saved_leads(skip: int = 0, limit: int = 10):
-    db = SessionLocal()
+async def get_saved_leads(skip: int = 0, limit: int = 10):
     try:
-        # total = db.query(LeadDB).count()
+        # Try Redis first
+        cached = await get_cached_lead_list(skip, limit)
+        if cached:
+            print(f"Redis HIT for leads: skip={skip}, limit={limit}")
+            return cached
+        else:
+            print(f"Redis MISS for leads: skip={skip}, limit={limit}")
+
+        db: Session = SessionLocal()
         db_leads = db.query(LeadDB) \
             .filter(LeadDB.email != None, LeadDB.website_url != None) \
-            .order_by(LeadDB.id)\
-            .offset(skip)\
-            .limit(limit)\
+            .order_by(LeadDB.id) \
+            .offset(skip) \
+            .limit(limit) \
             .all()
-
-        # leads = [
-        #     Lead(
-        #         id=l.id,
-        #         first_name=l.first_name,
-        #         last_name=l.last_name,
-        #         email=l.email,
-        #         title=l.title,
-        #         company=l.company,
-        #         website_url=l.website_url,
-        #         linkedin_url=l.linkedin_url,
-        #         website_speed_web=l.website_speed_web,
-        #         website_speed_mobile=l.website_speed_mobile,
-        #         screenshot_url=l.screenshot_url,
-        #         mail_sent=l.mail_sent,
-        #         generated_email=l.generated_email,
-        #         final_email=l.final_email,
-        #         pagespeed_diagnostics=l.pagespeed_diagnostics,
-        #         pagespeed_metrics_mobile = l.pagespeed_metrics_mobile,
-        #         pagespeed_metrics_desktop = l.pagespeed_metrics_desktop,
-        #     )
-        #     for l in db_leads
-        # ]
-        # db.close()
-        return db_leads
-    except Exception as e:
         db.close()
+
+        # Convert to serializable format
+        leads = [Lead.from_orm(l).dict() for l in db_leads]
+
+        # Cache the result
+        await cache_lead_list(skip, limit, leads, ttl=300)
+
+        return leads
+
+    except Exception as e:
         print(f"Error fetching leads: {e}")
         raise HTTPException(status_code=500, detail="Error fetching leads")
 
@@ -131,6 +169,135 @@ def import_gohighlevel_leads(per_page: int = 20):
         per_page=per_page
     )
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@app.post("/upload-csv")
+async def upload_csv_and_ingest(
+    file: UploadFile = File(...),
+    mapping: str = Form(...),     # JSON string with CSV->DB mapping
+    db: Session = Depends(get_db)
+):
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only CSV files are allowed.")
+
+    # Parse mapping JSON
+    try:
+        mapping_dict: dict[str, str | None] = json.loads(mapping)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid mapping JSON: {e}")
+
+    # Sanitize mapping: keep only allowed DB fields and non-skip values
+    cleaned_map: dict[str, str] = {}
+    for db_field, csv_col in mapping_dict.items():
+        if db_field not in ALLOWED_FIELDS:
+            continue
+        if not csv_col:
+            continue
+        if isinstance(csv_col, str) and csv_col.strip().lower() in {"skip column", "skip", "none", "null"}:
+            continue
+        cleaned_map[db_field] = csv_col.strip()
+
+    if not cleaned_map:
+        raise HTTPException(status_code=400, detail="No valid column mappings provided.")
+
+    # Read and save the CSV
+    raw = await file.read()
+    save_path = os.path.join(UPLOAD_DIR, file.filename)
+    with open(save_path, "wb") as f:
+        f.write(raw)
+
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+
+    reader = csv.DictReader(StringIO(text))
+    if not reader.fieldnames:
+        raise HTTPException(status_code=400, detail="CSV appears to have no header row.")
+
+    # Build a quick (case-insensitive) header resolver
+    headers_norm = {h.lower().strip(): h for h in reader.fieldnames}
+
+    def get_val(row: dict, csv_header_name: str):
+        # Find the actual CSV column in a case-insensitive way
+        actual = headers_norm.get(csv_header_name.lower().strip())
+        v = row.get(actual) if actual else None
+        return v.strip() if isinstance(v, str) else v
+
+    created = updated = 0
+    errors: list[dict] = []
+
+    for i, row in enumerate(reader, start=1):
+        try:
+            # Build payload from mapping
+            payload = {}
+            for db_field, csv_col in cleaned_map.items():
+                val = get_val(row, csv_col)
+                if db_field == "website_url":
+                    val = normalize_url(val)
+                payload[db_field] = val
+
+            email = payload.get("email")
+            company = payload.get("company")
+            website_url = payload.get("website_url")
+
+            # Must have at least email OR (company + website_url)
+            if not email and not (company and website_url):
+                errors.append({"row": i, "reason": "missing unique keys (email or company+website_url)"})
+                continue
+
+            # Upsert
+            existing = None
+            if email:
+                existing = db.query(LeadDB).filter(LeadDB.email == email).first()
+            if not existing and company and website_url:
+                existing = db.query(LeadDB).filter(
+                    LeadDB.company == company,
+                    LeadDB.website_url == website_url
+                ).first()
+
+            if existing:
+                for k, v in payload.items():
+                    if v not in (None, ""):
+                        setattr(existing, k, v)
+                updated += 1
+            else:
+                db.add(LeadDB(**payload))
+                created += 1
+
+            if (created + updated) % 100 == 0:
+                db.commit()
+
+        except Exception as e:
+            db.rollback()
+            errors.append({"row": i, "reason": str(e)})
+
+    db.commit()
+
+    # Optional: clear a few cached pages if your cache_delete helper exists
+    try:
+        for skip in (0, 10, 20, 30, 40):
+            await cache_lead_list(skip, 10, None, ttl=0)
+    except Exception:
+        pass
+
+    return {
+        "filename": file.filename,
+        "columns_detected": reader.fieldnames,
+        "mapping_used": cleaned_map,
+        "created": created,
+        "updated": updated,
+        "errors": errors[:50],
+        "total_rows_processed": created + updated + len(errors),
+        "saved_path": save_path
+    }
+
+
 @app.post("/speedtest")
 def run_bulk_speedtest():
     count = test_all_unspeeded_leads()
@@ -153,6 +320,71 @@ def test_pagespeed_metrics(url: str):
         "diagnostics_keys": list(diagnostics.keys()) if diagnostics else [],
         "metrics": metrics
     }
+
+DEFAULT_EXPORT_COLUMNS = [
+    "id", "first_name", "last_name", "email",
+    "company", "title", "website_url", "linkedin_url"
+]
+
+def _resolve_export_columns(columns_param: Optional[str]) -> List[str]:
+    # Get actual columns from SQLAlchemy model
+    mapper = inspect(LeadDB)
+    all_columns = {col.key for col in mapper.attrs if hasattr(col, "columns") or True}
+    if not columns_param:
+        return [c for c in DEFAULT_EXPORT_COLUMNS if c in all_columns]
+
+    requested = [c.strip() for c in columns_param.split(",") if c.strip()]
+    valid = [c for c in requested if c in all_columns]
+    if not valid:
+        # fallback to defaults if the user passed only invalid columns
+        valid = [c for c in DEFAULT_EXPORT_COLUMNS if c in all_columns]
+    return valid
+
+def _serialize_cell(val):
+    # Make CSV-safe strings
+    if val is None:
+        return ""
+    if isinstance(val, (dict, list)):
+        return json.dumps(val, ensure_ascii=False)
+    return str(val)
+
+@app.get("/download-csv")
+def download_leads_csv(
+    response: Response,
+    ids: Optional[List[int]] = Query(None, description="Filter by selected Lead IDs, e.g. ?ids=1&ids=2"),
+    columns: Optional[str] = Query(None, description="Comma-separated list of columns to include"),
+    db: Session = Depends(get_db),
+):
+    export_cols = _resolve_export_columns(columns)
+
+    query = db.query(LeadDB)
+    if ids:
+        query = query.filter(LeadDB.id.in_(ids))
+
+    # Stream as we go for large exports
+    def row_generator():
+        # header
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(export_cols)
+        yield buffer.getvalue()
+        buffer.seek(0); buffer.truncate(0)
+
+        # rows
+        for lead in query.yield_per(500):
+            row = [_serialize_cell(getattr(lead, col, None)) for col in export_cols]
+            writer.writerow(row)
+            yield buffer.getvalue()
+            buffer.seek(0); buffer.truncate(0)
+
+    ts = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    filename = f"leads_export_{ts}.csv"
+
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Cache-Control": "no-store",
+    }
+    return StreamingResponse(row_generator(), media_type="text/csv", headers=headers)
 
 @app.post("/generate-mail/{lead_id}")
 def generate_mail(lead_id: int):
