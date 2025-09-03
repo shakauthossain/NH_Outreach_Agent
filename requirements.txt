@@ -17,3 +17,5 @@ passlib
 python-multipart
 BeautifulSoup4
 redis
+tldextract
+playwright
