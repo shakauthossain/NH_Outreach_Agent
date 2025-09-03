@@ -39,6 +39,9 @@ class LeadDB(Base):
     pagespeed_metrics_mobile = Column(JSON, nullable=True)
     pagespeed_metrics_desktop = Column(JSON, nullable=True)
     sent_to_salesrobot = Column(Boolean, default=False)
+    punchline1 = Column(String, nullable=True)
+    punchline2 = Column(String, nullable=True)
+    punchline3 = Column(String, nullable=True)
 
 
 # Base.metadata.drop_all(bind=engine)  # Drop existing tables

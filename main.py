@@ -27,6 +27,7 @@ from GoHighLevel import fetch_gohighlevel_leads
 from salesrobot import router as salesrobot_router
 from ghl_inbox import router as inbox_router
 from redis_cache import get_cached_lead_list, cache_lead_list
+from punchlineprocess import run_single
 
 app = FastAPI()
 
@@ -418,3 +419,28 @@ def serve_mail_editor(lead_id: int):
 def send_mail(lead_id: int, body: MailBody):
     send_email_to_lead(lead_id, body.email_body)
     return {"message": "Email sent successfully."}
+
+@app.post("/process-punchlines/{lead_id}")
+async def process_punchlines(lead_id: int):
+    db = SessionLocal()
+    lead = db.query(LeadDB).filter(LeadDB.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    url = lead.website_url
+    if not url:
+        raise HTTPException(status_code=400, detail="Lead does not have a website URL")
+
+    # Run the punchline process
+    path_used, ranked_punchlines = await run_single(url, company=lead.company)  # Add await
+
+    # Save punchlines to the database
+    lead.punchline1 = ranked_punchlines[0]["line"] if len(ranked_punchlines) > 0 else None
+    lead.punchline2 = ranked_punchlines[1]["line"] if len(ranked_punchlines) > 1 else None
+    lead.punchline3 = ranked_punchlines[2]["line"] if len(ranked_punchlines) > 2 else None
+
+    db.commit()
+    db.close()
+
+    return {"message": "Punchlines generated and saved", "punchlines": ranked_punchlines}
+
