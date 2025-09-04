@@ -24,10 +24,8 @@ from pagespeed import test_all_unspeeded_leads, refresh_speed_for_lead
 from mail_gen import generate_email_from_lead, send_email_to_lead
 from pagespeed import get_pagespeed_score_and_screenshot
 from GoHighLevel import fetch_gohighlevel_leads
-from salesrobot import router as salesrobot_router
 from ghl_inbox import router as inbox_router
 from redis_cache import get_cached_lead_list, cache_lead_list
-from punchlineprocess import run_single
 from scraping import scrape_and_extract  # Import scraping logic from scraping.py
 from punchline import generate_punchlines  
 
@@ -43,9 +41,31 @@ app.add_middleware(
 )
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+
+
+def sanitize_domain(domain: str) -> str:
+    """Sanitize the domain to replace invalid characters like dots and colons."""
+    return domain.replace(".", "_").replace(":", "_")
+
+
+@app.get("/{domain}-{strategy}-pagespeed.png")
+async def get_screenshot(domain: str, strategy: str):
+    # Sanitize the domain to match the file storage structure
+    sanitized_domain = sanitize_domain(domain)
+    
+    # Construct the file path
+    file_path = os.path.join(STATIC_DIR, sanitized_domain, f"{sanitized_domain}-{strategy}-pagespeed.png")
+    
+    # Check if the file exists
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    else:
+        raise HTTPException(status_code=404, detail="Screenshot not found")
+
+
+# Mount the static files directory to serve other static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-app.include_router(salesrobot_router)
 app.include_router(auth_router)
 app.include_router(inbox_router)
 
@@ -437,7 +457,7 @@ async def process_punchlines(lead_id: int):
         raise HTTPException(status_code=400, detail="Lead does not have a website URL")
 
     # Scrape the website and extract the signals using scraping.py
-    pages, signals, evidence = await scrape_and_extract(url, firecrawl_base="your_firecrawl_base", firecrawl_key="your_firecrawl_key")
+    pages, signals, evidence = await scrape_and_extract(url, firecrawl_base="https://api.firecrawl.dev", firecrawl_key="fc-135574cccbe141b5bcfe6c1a40d17cb9")
 
     if not evidence:
         db.close()

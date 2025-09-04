@@ -114,7 +114,7 @@ def fetch_gohighlevel_leads(desired_count: int = 20, per_page: int = 20) -> List
                 linkedin_url=linkedin_url,
                 website_speed_web=None,
                 website_speed_mobile=None,
-                screenshot_url=None,
+                screenshot_url_web=None,
                 ghl_contact_id=ghl_contact_id
             ))
             print(f"Added: {first_name} {last_name} ({email}) | GHL ID: {ghl_contact_id}")

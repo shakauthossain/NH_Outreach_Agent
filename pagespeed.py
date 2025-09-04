@@ -68,23 +68,25 @@ def get_pagespeed_score_and_screenshot(url: str, strategy: str) -> tuple[dict | 
         if screenshot_data_uri:
             img_data = base64.b64decode(screenshot_data_uri.split(",")[1])
             domain = sanitize_domain(url)
+            
+            # Store the file in the 'static' directory under the domain folder
             folder = os.path.join(STATIC_DIR, domain)
             os.makedirs(folder, exist_ok=True)
-            filename = f"{domain}_{strategy}.png"
+            filename = f"{domain}-{strategy}-pagespeed.png"
             filepath = os.path.join(folder, filename)
-
             with open(filepath, "wb") as f:
                 f.write(img_data)
 
-            # ✅ Generate a public URL instead of local file path
+            # Public URL structure without '/static/' prefix
             HF_SPACE_URL = "https://notionhive-ai-nh-outreach-agent.hf.space"
-            screenshot_path = f"{HF_SPACE_URL}/static/{domain}/{filename}"
+            screenshot_path = f"{HF_SPACE_URL}/{domain}-{strategy}-pagespeed.png"
 
         return scores, screenshot_path, diagnostics_data, metrics_data
 
     except Exception as e:
         print(f"Error testing {url} ({strategy}): {e}")
         return None, None, None, None
+
 
 def test_all_unspeeded_leads():
     db = SessionLocal()
@@ -98,15 +100,19 @@ def test_all_unspeeded_leads():
         if not lead.website_url:
             continue
 
+        # Fetch scores and screenshot for both desktop and mobile
         scores_web, screenshot_web, _, metrics_web = get_pagespeed_score_and_screenshot(lead.website_url, "desktop")
         scores_mob, screenshot_mob, diagnostics_mob, metrics_mob = get_pagespeed_score_and_screenshot(lead.website_url, "mobile")
 
+        # Save the data
         if scores_web:
             lead.website_speed_web = scores_web["performance"]
         if scores_mob:
             lead.website_speed_mobile = scores_mob["performance"]
         if screenshot_web:
-            lead.screenshot_url = screenshot_web
+            lead.screenshot_url_web = screenshot_web  # Save desktop screenshot URL
+        if screenshot_mob:
+            lead.screenshot_url_mobile = screenshot_mob  # Save mobile screenshot URL
         if diagnostics_mob:
             lead.pagespeed_diagnostics = diagnostics_mob
         if metrics_web:
@@ -131,27 +137,25 @@ def refresh_speed_for_lead(lead_id: int) -> tuple[int | None, int | None]:
         db.close()
         return None, None
 
+    # Fetch scores and screenshot for both desktop and mobile
     scores_web, screenshot_web, _, metrics_web = get_pagespeed_score_and_screenshot(lead.website_url, "desktop")
     scores_mob, screenshot_mob, diagnostics_mob, metrics_mob = get_pagespeed_score_and_screenshot(lead.website_url, "mobile")
 
+    # Save the data
     if scores_web:
         lead.website_speed_web = scores_web["performance"]
     if scores_mob:
         lead.website_speed_mobile = scores_mob["performance"]
     if screenshot_web:
-        lead.screenshot_url = screenshot_web
+        lead.screenshot_url_web = screenshot_web  # Save desktop screenshot URL
+    if screenshot_mob:
+        lead.screenshot_url_mobile = screenshot_mob  # Save mobile screenshot URL
     if diagnostics_mob:
         lead.pagespeed_diagnostics = diagnostics_mob
     if metrics_web:
         lead.pagespeed_metrics_desktop = metrics_web
-        print(f"\n🔍 Desktop metrics for {lead.website_url}:")
-        for k, v in metrics_web.items():
-            print(f"  {v['title']}: {v['displayValue']} ({v['numericValue']})")
     if metrics_mob:
         lead.pagespeed_metrics_mobile = metrics_mob
-        print(f"\n📱 Mobile metrics for {lead.website_url}:")
-        for k, v in metrics_mob.items():
-            print(f"  {v['title']}: {v['displayValue']} ({v['numericValue']})")
 
     if scores_web or scores_mob:
         db.commit()

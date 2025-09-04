@@ -12,7 +12,8 @@ class Lead(BaseModel):
     linkedin_url: Optional[str]
     website_speed_web: Optional[int]
     website_speed_mobile: Optional[int]
-    screenshot_url: Optional[str]
+    screenshot_url_web: Optional[str]
+    screenshot_url_mobile: Optional[str]
     ghl_contact_id: Optional[str] = None
     conversation_id: Optional[str] = None
     mail_sent: Optional[bool] = False

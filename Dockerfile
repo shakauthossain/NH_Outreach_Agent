@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Create app directory and Hugging Face cache
-RUN mkdir -p /app /app/hf_cache
+RUN mkdir -p /app /app/hf_cache /app/uploaded_csvs
 
 # Set the working directory
 WORKDIR /app
@@ -22,6 +22,7 @@ COPY . .
 
 # Set full permissions for static folder
 RUN chmod -R 777 /app/static
+RUN chmod -R 777 /app/uploaded_csvs
 
 # Expose the port Hugging Face Spaces expects
 EXPOSE 7860

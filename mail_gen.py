@@ -6,20 +6,20 @@ from dotenv import load_dotenv
 
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
-from langchain_groq import ChatGroq
 from langchain_core.output_parsers import StrOutputParser
 
 from database import SessionLocal, LeadDB
 from contextlib import contextmanager
 
-# Load environment variables
+# NEW: shared LLM provider
+from llm_provider import get_chat_groq
+
+# Load env for non-LLM settings used here (idempotent even if llm_provider already loaded it)
 load_dotenv()
-Groq_API = os.getenv("GROQ_API_KEY")
 MAIL_SENDER = os.getenv("MAIL_SENDER")
 GHL_API_KEY = os.getenv("GOHIGHLEVEL_KEY")
 ENV = os.getenv("ENV", "prod")
 TEST_EMAIL = os.getenv("TEST_EMAIL", None)
-
 
 @contextmanager
 def get_db():
@@ -28,7 +28,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
 
 def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
     with get_db() as db:
@@ -45,13 +44,13 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
         - Website URL: {website_url}
         - Desktop PageSpeed Score: {desktop_score}
         - Mobile PageSpeed Score: {mobile_score}
-        - Screenshot Link: {screenshot_url}
+        - Screenshot Link: {screenshot_url_web}
 
         This email should:
         - Address the lead by name and reference their job role
         - Highlight their website's low PageSpeed score (mention both desktop and mobile)
         - Reference real-world impact of slow websites (e.g., "a 1s delay can drop conversions by X%")
-        - Mention that a performance audit screenshot is available (use {screenshot_url})
+        - Mention that a performance audit screenshot is available (use {screenshot_url_web})
         - Offer a quick, no-pressure consultation to improve performance
         - Keep the tone confident, friendly, and brief
         - Include a clear call-to-action to book a short call
@@ -64,16 +63,13 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
         prompt = PromptTemplate(
             input_variables=[
                 "first_name", "title", "company", "website_url",
-                "desktop_score", "mobile_score", "screenshot_url"
+                "desktop_score", "mobile_score", "screenshot_url_web"
             ],
             template=template,
         )
 
-        llm = ChatGroq(
-            model_name="llama-3.3-70b-versatile",
-            temperature=0.7,
-            groq_api_key=Groq_API
-        )
+        # ✅ Same model & API via shared provider
+        llm = get_chat_groq()  # temperature/model come from llm_provider/.env
 
         chain = prompt | llm | StrOutputParser()
 
@@ -84,7 +80,7 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
             "website_url": lead.website_url,
             "desktop_score": lead.website_speed_web or 0,
             "mobile_score": lead.website_speed_mobile or 0,
-            "screenshot_url": lead.screenshot_url or "N/A"
+            "screenshot_url_web": lead.screenshot_url_web or "N/A"
         }
 
         result = chain.invoke(variables).strip()
@@ -93,7 +89,8 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
         match = re.search(r"Subject:\s*(.*)", result, re.IGNORECASE)
         subject_line = match.group(1).strip() if match else ""
         body = re.sub(r"Subject:.*\n?", "", result, flags=re.IGNORECASE).strip()
-        body = result
+
+        # Ensure a sign-off gets added consistently
         body = body.strip() + "\n\nBest regards,\nNotionhive Tech Team"
 
         lead.generated_email = body
@@ -102,7 +99,6 @@ def generate_email_from_lead(lead_id: int) -> tuple[str, str]:
         db.commit()
 
         return subject_line, body
-
 
 def send_email_to_lead(lead_id: int, email_body: str) -> None:
     with get_db() as db:
@@ -165,7 +161,6 @@ def send_email_to_lead(lead_id: int, email_body: str) -> None:
                             break
                     if conversation_id:
                         print(f"Conversation ID found: {conversation_id}")
-                        # Optional: store to DB
                         lead.conversation_id = conversation_id
                         db.commit()
                         break
