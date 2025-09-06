@@ -28,4 +28,4 @@ RUN chmod -R 777 /app/uploaded_csvs
 EXPOSE 7860
 
 # Run the FastAPI app via Uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

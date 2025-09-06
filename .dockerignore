@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtualenvs
+.venv
+env/
+venv/
+
+# Local dev files
+*.db
+*.sqlite3
+
+# Logs
+*.log
+
+# IDE / system
+.DS_Store
+.idea
+.vscode
+*.swp
+
+# git
+.git
+.gitignore
+
+# Docker files themselves
+Dockerfile
+docker-compose.yml
+

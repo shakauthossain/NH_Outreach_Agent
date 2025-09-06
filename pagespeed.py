@@ -78,7 +78,7 @@ def get_pagespeed_score_and_screenshot(url: str, strategy: str) -> tuple[dict | 
                 f.write(img_data)
 
             # Public URL structure without '/static/' prefix
-            HF_SPACE_URL = "https://notionhive-ai-nh-outreach-agent.hf.space"
+            HF_SPACE_URL = "https://result.hellonotionhive.com"
             screenshot_path = f"{HF_SPACE_URL}/{domain}-{strategy}-pagespeed.png"
 
         return scores, screenshot_path, diagnostics_data, metrics_data
