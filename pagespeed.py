@@ -4,6 +4,7 @@ import base64
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from database import SessionLocal, LeadDB
+from sqlalchemy import or_, and_
 
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_PAGESPEED_KEY")
@@ -90,18 +91,16 @@ def get_pagespeed_score_and_screenshot(url: str, strategy: str) -> tuple[dict | 
 
 def test_all_unspeeded_leads():
     db = SessionLocal()
-    leads = db.query(LeadDB).filter(
-        LeadDB.website_speed_web == None,
-        LeadDB.website_speed_mobile == None
-    ).all()
+    leads = db.query(LeadDB).all()
     count = 0
 
-    for lead in leads:
-        if not lead.website_url:
-            continue
+    # (optional) quick visibility while validating
+    print(f"[/speedtest] candidates={len(leads)}")
 
-        # Fetch scores and screenshot for both desktop and mobile
+    for lead in leads:
+        # Desktop
         scores_web, screenshot_web, _, metrics_web = get_pagespeed_score_and_screenshot(lead.website_url, "desktop")
+        # Mobile
         scores_mob, screenshot_mob, diagnostics_mob, metrics_mob = get_pagespeed_score_and_screenshot(lead.website_url, "mobile")
 
         # Save the data
@@ -110,9 +109,9 @@ def test_all_unspeeded_leads():
         if scores_mob:
             lead.website_speed_mobile = scores_mob["performance"]
         if screenshot_web:
-            lead.screenshot_url_web = screenshot_web  # Save desktop screenshot URL
+            lead.screenshot_url_web = screenshot_web
         if screenshot_mob:
-            lead.screenshot_url_mobile = screenshot_mob  # Save mobile screenshot URL
+            lead.screenshot_url_mobile = screenshot_mob
         if diagnostics_mob:
             lead.pagespeed_diagnostics = diagnostics_mob
         if metrics_web:
@@ -128,7 +127,6 @@ def test_all_unspeeded_leads():
 
     db.close()
     return count
-
 
 def refresh_speed_for_lead(lead_id: int) -> tuple[int | None, int | None]:
     db = SessionLocal()

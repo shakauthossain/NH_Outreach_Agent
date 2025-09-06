@@ -34,7 +34,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://outreach.hellonotionhive.com", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -320,7 +320,6 @@ async def upload_csv_and_ingest(
         "total_rows_processed": created + updated + len(errors),
         "saved_path": save_path
     }
-
 
 @app.post("/speedtest")
 def run_bulk_speedtest():
