@@ -16,6 +16,7 @@ COPY requirements.txt .
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+RUN playwright install --with-deps chromium
 
 # Copy the entire project (including auth/ folder and static/)
 COPY . .
