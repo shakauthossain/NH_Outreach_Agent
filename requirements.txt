@@ -19,3 +19,5 @@ BeautifulSoup4
 redis
 tldextract
 playwright
+celery[redis]
+redis

@@ -28,7 +28,8 @@ from ghl_inbox import router as inbox_router
 from redis_cache import get_cached_lead_list, cache_lead_list
 from scraping import scrape_and_extract  # Import scraping logic from scraping.py
 from punchline import generate_punchlines  
-
+from background_tasks import process_punchlines_for_lead, process_punchlines_for_all_leads
+from celery.result import AsyncResult
 
 app = FastAPI()
 
@@ -444,65 +445,18 @@ def send_mail(lead_id: int, body: MailBody):
 
 @app.post("/process-punchlines/{lead_id}")
 async def process_punchlines(lead_id: int):
-    db = SessionLocal()
-    lead = db.query(LeadDB).filter(LeadDB.id == lead_id).first()
-    if not lead:
-        db.close()
-        raise HTTPException(status_code=404, detail="Lead not found")
-
-    url = lead.website_url
-    if not url:
-        db.close()
-        raise HTTPException(status_code=400, detail="Lead does not have a website URL")
-
-    # Scrape the website and extract the signals using scraping.py
-    pages, signals, evidence = await scrape_and_extract(url, firecrawl_base="https://api.firecrawl.dev", firecrawl_key="fc-135574cccbe141b5bcfe6c1a40d17cb9")
-
-    if not evidence:
-        db.close()
-        return {"message": "No evidence found, manual review needed."}
-
-    # Generate punchlines using punchline.py
-    company = lead.company if lead.company else "Unknown"
-    ranked_punchlines = generate_punchlines(company, evidence)
-
-    # Save the generated punchlines to the database
-    lead.punchline1 = ranked_punchlines[0]["line"] if len(ranked_punchlines) > 0 else None
-    lead.punchline2 = ranked_punchlines[1]["line"] if len(ranked_punchlines) > 1 else None
-    lead.punchline3 = ranked_punchlines[2]["line"] if len(ranked_punchlines) > 2 else None
-
-    db.commit()
-    db.close()
-
-    return {"message": "Punchlines generated and saved", "punchlines": ranked_punchlines}
+    task = process_punchlines_for_lead.delay(lead_id)
+    return {"task_id": task.id, "message": "Punchline processing started in background."}
 
 @app.post("/process-punchlines")
 async def process_punchlines_all():
-    db = SessionLocal()
-    leads = db.query(LeadDB).filter(LeadDB.website_url != None).all()
-    processed = 0
-    errors = []
-    for lead in leads:
-        try:
-            url = lead.website_url
-            if not url:
-                continue
-            # Scrape and extract signals
-            pages, signals, evidence = await scrape_and_extract(url, firecrawl_base="https://api.firecrawl.dev", firecrawl_key="fc-135574cccbe141b5bcfe6c1a40d17cb9")
-            if not evidence:
-                errors.append({"lead_id": lead.id, "reason": "No evidence found"})
-                continue
-            company = lead.company if lead.company else "Unknown"
-            ranked_punchlines = generate_punchlines(company, evidence)
-            lead.punchline1 = ranked_punchlines[0]["line"] if len(ranked_punchlines) > 0 else None
-            lead.punchline2 = ranked_punchlines[1]["line"] if len(ranked_punchlines) > 1 else None
-            lead.punchline3 = ranked_punchlines[2]["line"] if len(ranked_punchlines) > 2 else None
-            processed += 1
-        except Exception as e:
-            errors.append({"lead_id": lead.id, "reason": str(e)})
-    db.commit()
-    db.close()
-    return {"message": f"Processed punchlines for {processed} leads", "errors": errors}
+    task = process_punchlines_for_all_leads.delay()
+    return {"task_id": task.id, "message": "Bulk punchline processing started in background."}
+
+@app.get("/task-status/{task_id}")
+def get_task_status(task_id: str):
+    result = AsyncResult(task_id)
+    return {"task_id": task_id, "status": result.status, "result": result.result if result.ready() else None}
 
 @app.get("/lead-punchlines/{lead_id}")
 def get_lead_punchlines(lead_id: int):
