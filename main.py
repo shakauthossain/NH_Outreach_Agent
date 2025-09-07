@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, UploadFile, File, HTTPException, Request, Depends, Form, Response
+from fastapi import FastAPI, Query, UploadFile, File, HTTPException, Request, Depends, Form, Response, Body
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -475,3 +475,78 @@ async def process_punchlines(lead_id: int):
     db.close()
 
     return {"message": "Punchlines generated and saved", "punchlines": ranked_punchlines}
+
+@app.post("/process-punchlines")
+async def process_punchlines_all():
+    db = SessionLocal()
+    leads = db.query(LeadDB).filter(LeadDB.website_url != None).all()
+    processed = 0
+    errors = []
+    for lead in leads:
+        try:
+            url = lead.website_url
+            if not url:
+                continue
+            # Scrape and extract signals
+            pages, signals, evidence = await scrape_and_extract(url, firecrawl_base="https://api.firecrawl.dev", firecrawl_key="fc-135574cccbe141b5bcfe6c1a40d17cb9")
+            if not evidence:
+                errors.append({"lead_id": lead.id, "reason": "No evidence found"})
+                continue
+            company = lead.company if lead.company else "Unknown"
+            ranked_punchlines = generate_punchlines(company, evidence)
+            lead.punchline1 = ranked_punchlines[0]["line"] if len(ranked_punchlines) > 0 else None
+            lead.punchline2 = ranked_punchlines[1]["line"] if len(ranked_punchlines) > 1 else None
+            lead.punchline3 = ranked_punchlines[2]["line"] if len(ranked_punchlines) > 2 else None
+            processed += 1
+        except Exception as e:
+            errors.append({"lead_id": lead.id, "reason": str(e)})
+    db.commit()
+    db.close()
+    return {"message": f"Processed punchlines for {processed} leads", "errors": errors}
+
+@app.get("/lead-punchlines/{lead_id}")
+def get_lead_punchlines(lead_id: int):
+    db = SessionLocal()
+    lead = db.query(LeadDB).filter(LeadDB.id == lead_id).first()
+    if not lead:
+        db.close()
+        raise HTTPException(status_code=404, detail="Lead not found")
+    punchlines = {
+        "punchline1": lead.punchline1,
+        "punchline2": lead.punchline2,
+        "punchline3": lead.punchline3
+    }
+    db.close()
+    return {"lead_id": lead_id, "punchlines": punchlines}
+
+@app.post("/download-csv-selected")
+def download_selected_leads_csv(
+    lead_ids: List[int] = Body(..., embed=True, description="List of lead IDs to export"),
+    columns: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    export_cols = _resolve_export_columns(columns)
+
+    query = db.query(LeadDB)
+    if lead_ids:
+        query = query.filter(LeadDB.id.in_(lead_ids))
+
+    def row_generator():
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(export_cols)
+        yield buffer.getvalue()
+        buffer.seek(0); buffer.truncate(0)
+        for lead in query.yield_per(500):
+            row = [_serialize_cell(getattr(lead, col, None)) for col in export_cols]
+            writer.writerow(row)
+            yield buffer.getvalue()
+            buffer.seek(0); buffer.truncate(0)
+
+    ts = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    filename = f"leads_selected_{ts}.csv"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Cache-Control": "no-store",
+    }
+    return StreamingResponse(row_generator(), media_type="text/csv", headers=headers)

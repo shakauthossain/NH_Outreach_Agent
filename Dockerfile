@@ -25,7 +25,7 @@ RUN chmod -R 777 /app/static
 RUN chmod -R 777 /app/uploaded_csvs
 
 # Expose the port Hugging Face Spaces expects
-EXPOSE 7860
+EXPOSE 8000
 
 # Run the FastAPI app via Uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
