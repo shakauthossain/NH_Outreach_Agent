@@ -64,9 +64,10 @@ def process_punchlines_for_all_leads():
             lead.punchline1 = ranked_punchlines[0]["line"] if len(ranked_punchlines) > 0 else None
             lead.punchline2 = ranked_punchlines[1]["line"] if len(ranked_punchlines) > 1 else None
             lead.punchline3 = ranked_punchlines[2]["line"] if len(ranked_punchlines) > 2 else None
+            db.commit()  # Commit after each lead
             processed += 1
         except Exception as e:
+            db.rollback()  # Rollback on error
             errors.append({"lead_id": lead.id, "reason": str(e)})
-    db.commit()
     db.close()
     return {"processed": processed, "errors": errors}

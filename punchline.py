@@ -4,6 +4,7 @@ from typing import List, Tuple, Dict, Any
 import random
 from dotenv import load_dotenv
 from llm_provider import get_chat_groq
+import time
 
 
 load_dotenv()
@@ -253,6 +254,7 @@ def generate_punchlines(
     temps = [0.8, 0.6, 1.0, 0.7, 0.9]
     raw: List[str] = []
     i = 0
+    
     while len(raw) < k and i < len(temps) * 2:
         chat = _chat(temperature=temps[i % len(temps)])
         out = chat.invoke(messages)
@@ -262,6 +264,7 @@ def generate_punchlines(
         if passes_qc(line, snippets) and all(line.lower() != r.lower() for r in raw):
             raw.append(line)
         i += 1
+        time.sleep(10)
 
     while len(raw) < k:
         raw.append("Couldn’t access website—manual review needed.")

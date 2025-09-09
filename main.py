@@ -15,6 +15,8 @@ import re
 import json
 import datetime
 import io
+from dotenv import load_dotenv
+from celery_worker import celery_app
 
 from auth.routes import router as auth_router
 from apollo import fetch_apollo_leads, get_person_details
@@ -30,12 +32,13 @@ from scraping import scrape_and_extract  # Import scraping logic from scraping.p
 from punchline import generate_punchlines  
 from background_tasks import process_punchlines_for_lead, process_punchlines_for_all_leads
 from celery.result import AsyncResult
+from background_speedtest import run_bulk_speedtest_task
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://outreach.hellonotionhive.com"],  # Only allow your frontend
+    allow_origins=["https://outreach.hellonotionhive.com","*"],  # Only allow your frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,6 +46,7 @@ app.add_middleware(
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
+load_dotenv()
 
 def sanitize_domain(domain: str) -> str:
     """Sanitize the domain to replace invalid characters like dots and colons."""
@@ -322,10 +326,12 @@ async def upload_csv_and_ingest(
         "saved_path": save_path
     }
 
+
+
 @app.post("/speedtest")
 def run_bulk_speedtest():
-    count = test_all_unspeeded_leads()
-    return {"message": f"Tested {count} websites"}
+    task = run_bulk_speedtest_task.delay()
+    return {"task_id": task.id, "message": "Bulk speedtest started in background."}
 
 @app.post("/speedtest/{lead_id}")
 def refresh_one_speed(lead_id: int):
@@ -455,7 +461,7 @@ async def process_punchlines_all():
 
 @app.get("/task-status/{task_id}")
 def get_task_status(task_id: str):
-    result = AsyncResult(task_id)
+    result = celery_app.AsyncResult(task_id)
     return {"task_id": task_id, "status": result.status, "result": result.result if result.ready() else None}
 
 @app.get("/lead-punchlines/{lead_id}")
