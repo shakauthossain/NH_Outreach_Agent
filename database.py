@@ -7,7 +7,11 @@ from dotenv import load_dotenv
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,  # Checks connection before using
+    pool_recycle=1800    # Recycle connections every 30 minutes
+)
 SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()
