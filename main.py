@@ -35,7 +35,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://outreach.hellonotionhive.com", "*"],
+    allow_origins=["https://outreach.hellonotionhive.com"],  # Only allow your frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

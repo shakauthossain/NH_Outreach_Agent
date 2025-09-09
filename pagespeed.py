@@ -91,16 +91,54 @@ def get_pagespeed_score_and_screenshot(url: str, strategy: str) -> tuple[dict | 
 
 def test_all_unspeeded_leads():
     db = SessionLocal()
-    leads = db.query(LeadDB).all()
-    count = 0
+    try:
+        leads = db.query(LeadDB).all()
+        count = 0
 
-    # (optional) quick visibility while validating
-    print(f"[/speedtest] candidates={len(leads)}")
+        # (optional) quick visibility while validating
+        print(f"[/speedtest] candidates={len(leads)}")
 
-    for lead in leads:
-        # Desktop
+        for lead in leads:
+            # Desktop
+            scores_web, screenshot_web, _, metrics_web = get_pagespeed_score_and_screenshot(lead.website_url, "desktop")
+            # Mobile
+            scores_mob, screenshot_mob, diagnostics_mob, metrics_mob = get_pagespeed_score_and_screenshot(lead.website_url, "mobile")
+
+            # Save the data
+            if scores_web:
+                lead.website_speed_web = scores_web["performance"]
+            if scores_mob:
+                lead.website_speed_mobile = scores_mob["performance"]
+            if screenshot_web:
+                lead.screenshot_url_web = screenshot_web
+            if screenshot_mob:
+                lead.screenshot_url_mobile = screenshot_mob
+            if diagnostics_mob:
+                lead.pagespeed_diagnostics = diagnostics_mob
+            if metrics_web:
+                lead.pagespeed_metrics_desktop = metrics_web
+            if metrics_mob:
+                lead.pagespeed_metrics_mobile = metrics_mob
+
+            if scores_web or scores_mob:
+                db.commit()
+                count += 1
+                print(f"{lead.website_url} → W-{scores_web['performance'] if scores_web else '-'}, "
+                      f"M-{scores_mob['performance'] if scores_mob else '-'}")
+
+        return count
+    finally:
+        db.close()
+
+def refresh_speed_for_lead(lead_id: int) -> tuple[int | None, int | None]:
+    db = SessionLocal()
+    try:
+        lead = db.query(LeadDB).filter(LeadDB.id == lead_id).first()
+        if not lead or not lead.website_url:
+            return None, None
+
+        # Fetch scores and screenshot for both desktop and mobile
         scores_web, screenshot_web, _, metrics_web = get_pagespeed_score_and_screenshot(lead.website_url, "desktop")
-        # Mobile
         scores_mob, screenshot_mob, diagnostics_mob, metrics_mob = get_pagespeed_score_and_screenshot(lead.website_url, "mobile")
 
         # Save the data
@@ -109,9 +147,9 @@ def test_all_unspeeded_leads():
         if scores_mob:
             lead.website_speed_mobile = scores_mob["performance"]
         if screenshot_web:
-            lead.screenshot_url_web = screenshot_web
+            lead.screenshot_url_web = screenshot_web  # Save desktop screenshot URL
         if screenshot_mob:
-            lead.screenshot_url_mobile = screenshot_mob
+            lead.screenshot_url_mobile = screenshot_mob  # Save mobile screenshot URL
         if diagnostics_mob:
             lead.pagespeed_diagnostics = diagnostics_mob
         if metrics_web:
@@ -121,44 +159,9 @@ def test_all_unspeeded_leads():
 
         if scores_web or scores_mob:
             db.commit()
-            count += 1
-            print(f"{lead.website_url} → W-{scores_web['performance'] if scores_web else '-'}, "
-                  f"M-{scores_mob['performance'] if scores_mob else '-'}")
-
-    db.close()
-    return count
-
-def refresh_speed_for_lead(lead_id: int) -> tuple[int | None, int | None]:
-    db = SessionLocal()
-    lead = db.query(LeadDB).filter(LeadDB.id == lead_id).first()
-    if not lead or not lead.website_url:
+        return (
+            scores_web["performance"] if scores_web else None,
+            scores_mob["performance"] if scores_mob else None
+        )
+    finally:
         db.close()
-        return None, None
-
-    # Fetch scores and screenshot for both desktop and mobile
-    scores_web, screenshot_web, _, metrics_web = get_pagespeed_score_and_screenshot(lead.website_url, "desktop")
-    scores_mob, screenshot_mob, diagnostics_mob, metrics_mob = get_pagespeed_score_and_screenshot(lead.website_url, "mobile")
-
-    # Save the data
-    if scores_web:
-        lead.website_speed_web = scores_web["performance"]
-    if scores_mob:
-        lead.website_speed_mobile = scores_mob["performance"]
-    if screenshot_web:
-        lead.screenshot_url_web = screenshot_web  # Save desktop screenshot URL
-    if screenshot_mob:
-        lead.screenshot_url_mobile = screenshot_mob  # Save mobile screenshot URL
-    if diagnostics_mob:
-        lead.pagespeed_diagnostics = diagnostics_mob
-    if metrics_web:
-        lead.pagespeed_metrics_desktop = metrics_web
-    if metrics_mob:
-        lead.pagespeed_metrics_mobile = metrics_mob
-
-    if scores_web or scores_mob:
-        db.commit()
-    db.close()
-    return (
-        scores_web["performance"] if scores_web else None,
-        scores_mob["performance"] if scores_mob else None
-    )
